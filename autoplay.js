@@ -25,56 +25,66 @@ const CRAFTER_CARPENTER = 481431
 const MAT_ROYAL_SEAL = 411437
 const RECIPE_LUMBER = 1
 const RECIPE_FINE_WOOD = 2
+const MINT_TIMER = 24
 
 async function main() {
+    console.log(`MSource Balance (Before Claim): ${await getMSourceBalance()}`)
+
     //claiming MSOURCE
     console.log("Claiming MSOURCE...")
     await claimMSource()
 
+    //wait after claiming so balance can update
+    await delay(5000)
+
+    //get current aether balance
+    console.log(`MSource Balance (After Claim): ${await getMSourceBalance()}`)
+    console.log(`Lumber Balance: ${await getLumberBalance()}`)
+    console.log(`Fine Wood Balance: ${await getFineWoodsBalance()}`)
+
+    let royalSeals = await getRoyalSeals()
+
+    console.log(`Total royal seals: ${royalSeals.length}`)
+
     //get list of castles we can mint
     console.log("get list of castles we can mint")
-    let castles = await getNftByTemplate(LAND_CASTLE)
+    let { elgibleToMint: eligibleCastles, uneligibleToMint: uneligibleCastles } =
+        await getCraftByTemplate(LAND_CASTLE)
 
-    if (castles.length > 0) {
+    if (eligibleCastles.length > 0) {
         //mint royal seal
-        console.log(`Minting royal seals for ${castles.length} castle(s)...`)
+        console.log(`Minting royal seals for ${eligibleCastles.length} castle(s)...`)
 
-        //TODO some castles may not be eligible due to timer, unable to track this for now, so lets attempt 1 at at ime
-        for (const castle of castles) {
-            await createRoyalSeal([castle])
-        }
+        await createRoyalSeal(eligibleCastles)
     } else {
         console.log("No castles eligible for minting a royal seal")
     }
 
     //get list of lumberjacks we can mint
     console.log("get list of lumberjacks we can craft")
-    let lumberjacks = await getNftByTemplate(CRAFTER_LUMBERJACK)
+    let { elgibleToMint: eligibleLumberJacks, uneligibleToMint: uneligibleLumberJacks } =
+        await getCraftByTemplate(CRAFTER_LUMBERJACK)
 
-    if (lumberjacks.length > 0) {
-        //mint royal seal
-        console.log(`Crafting wood for ${lumberjacks.length} lumberjacks(s)...`)
+    if (eligibleLumberJacks.length > 0) {
+        //mint lumber
+        console.log(`Crafting wood for ${eligibleLumberJacks.length} lumberjacks(s)...`)
 
-        //TODO some lumberjacks may not be eligible due to timer, unable to track this for now, so lets attempt 1 at at ime
-        for (const lumberjack of lumberjacks) {
-            await craft([lumberjack], RECIPE_LUMBER)
-        }
+        await craft(eligibleLumberJacks, RECIPE_LUMBER)
     } else {
         console.log("No lumberjacks eligible for crafting wood")
     }
 
     //get list of carpenters we can mint
     console.log("get list of carpenters we can craft")
-    let carpenters = await getNftByTemplate(CRAFTER_CARPENTER)
 
-    if (carpenters.length > 0) {
-        //mint royal seal
-        console.log(`Crafting fine wood for ${carpenters.length} carpenter(s)...`)
+    let { elgibleToMint: eligibleCarpenters, uneligibleToMint: uneligibleCarpenters } =
+        await getCraftByTemplate(CRAFTER_CARPENTER)
 
-        //TODO some carpenters may not be eligible due to timer, unable to track this for now, so lets attempt 1 at at ime
-        for (const carpenter of carpenters) {
-            await craft([carpenter], RECIPE_FINE_WOOD)
-        }
+    if (eligibleCarpenters.length > 0) {
+        //mint fine wood
+        console.log(`Crafting fine wood for ${eligibleCarpenters.length} carpenter(s)...`)
+
+        await craft(eligibleCarpenters, RECIPE_FINE_WOOD)
     } else {
         console.log("No carpenters eligible for crafting wood")
     }
@@ -166,6 +176,7 @@ async function craft(assets, recipeId) {
     try {
         await api.transact(craftAction, tapos)
         console.log("Craft successful!")
+
         return true
     } catch (e) {
         console.log("Error while crafting: " + e.details[0].message)
@@ -173,8 +184,10 @@ async function craft(assets, recipeId) {
     }
 }
 
-async function getNftByTemplate(templateId) {
-    let nfts = []
+async function getCraftByTemplate(templateId) {
+    let elgibleToMint = []
+    let uneligibleToMint = []
+    let needsCharging = []
 
     let page = 1
     let keepLooking = true
@@ -196,8 +209,12 @@ async function getNftByTemplate(templateId) {
 
         for (let j = 0; j < nftItems.data.length; j++) {
             let currentCharges = Number(nftItems.data[j].data["Current Charges"])
+            let claimRef = nftItems.data[j].data["Claim Reference Number"].padEnd(13, "0")
+            let hoursPassed = parseInt(new Date() - new Date(Number(claimRef))) / 1000 / 60 / 60
 
-            if (currentCharges > 0) nfts.push(nftItems.data[j].asset_id)
+            if (currentCharges == 0) needsCharging.push(nftItems.data[j].asset_id)
+            else if (hoursPassed < MINT_TIMER) uneligibleToMint.push(nftItems.data[j].asset_id)
+            else elgibleToMint.push(nftItems.data[j].asset_id)
         }
 
         page++
@@ -206,7 +223,51 @@ async function getNftByTemplate(templateId) {
         else await delay(20)
     }
 
-    return nfts
+    return { elgibleToMint, uneligibleToMint, needsCharging }
+}
+
+async function getRoyalSeals() {
+    let royalSeals = []
+
+    let page = 1
+    let keepLooking = true
+
+    while (keepLooking) {
+        let nftItems = await fetch(
+            "https://wax.api.atomicassets.io/atomicassets/v1/assets?page=" +
+                page +
+                "&limit=40&owner=" +
+                process.env.WAX_ADDRESS +
+                "&collection_name=" +
+                COLLECTION_NAME +
+                "&template_id=" +
+                MAT_ROYAL_SEAL
+        )
+        nftItems = await nftItems.json()
+
+        if (nftItems.data.length == 0) break
+
+        for (let j = 0; j < nftItems.data.length; j++) {
+            royalSeals.push(nftItems.data[j].asset_id)
+        }
+
+        page++
+
+        if (nftItems.length < 40) keepLooking = false
+        else await delay(20)
+    }
+
+    return royalSeals
+}
+
+async function getMSourceBalance() {
+    return await rpc.get_currency_balance("msourcetoken", process.env.WAX_ADDRESS, "MSOURCE")
+}
+async function getLumberBalance() {
+    return await rpc.get_currency_balance("msourcetoken", process.env.WAX_ADDRESS, "CLUMBER")
+}
+async function getFineWoodsBalance() {
+    return await rpc.get_currency_balance("msourcetoken", process.env.WAX_ADDRESS, "CFWTEMP")
 }
 
 main()
