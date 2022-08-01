@@ -26,6 +26,16 @@ const MAT_ROYAL_SEAL = 411437
 const RECIPE_LUMBER = 1
 const RECIPE_FINE_WOOD = 2
 const MINT_TIMER = 24
+const PACK_2LANDS = 527506
+const LAND_CLAIM_FINE_WOOD_FEE = 16
+const TOKEN_FINEWOOD = "CFWTEMP"
+const TOKEN_LUMBER = "CLUMBER"
+const TOKEN_MSOURCE = "MSOURCE"
+const ACCOUNT_MSOURCETOKEN = "msourcetoken"
+const ACCOUNT_MSOURCESTAKE = "msourcestake"
+const ACCOUNT_MSOURCEKINGS = "msourcekings"
+const ACCOUNT_MSOURCEGOODS = "msourcegoods"
+const ACCOUNT_MSOURCEGUILD = "msourceguild"
 
 async function main() {
     console.log(`MSource Balance (Before Claim): ${await getMSourceBalance()}`)
@@ -39,8 +49,6 @@ async function main() {
 
     //get current aether balance
     console.log(`MSource Balance (After Claim): ${await getMSourceBalance()}`)
-    console.log(`Lumber Balance: ${await getLumberBalance()}`)
-    console.log(`Fine Wood Balance: ${await getFineWoodsBalance()}`)
 
     let royalSeals = await getRoyalSeals()
 
@@ -89,6 +97,21 @@ async function main() {
         console.log("No carpenters eligible for crafting wood")
     }
 
+    console.log("wait for blockchain")
+    await delay(5000)
+
+    let fineWoodBalance = await getFineWoodsBalance()
+
+    while (fineWoodBalance >= LAND_CLAIM_FINE_WOOD_FEE) {
+        console.log(`${fineWoodBalance} fine woods remaining, so claiming for land`)
+        if (await claimLand()) {
+            fineWoodBalance -= LAND_CLAIM_FINE_WOOD_FEE
+        } else {
+            console.log("Errors occurred claiming land, so will try again later")
+            break
+        }
+    }
+
     console.log("AutoPlay complete!")
 }
 
@@ -96,7 +119,7 @@ async function claimMSource() {
     let claimAction = {
         actions: [
             {
-                account: "msourcestake",
+                account: ACCOUNT_MSOURCESTAKE,
                 name: "claim",
                 authorization: [
                     {
@@ -125,7 +148,7 @@ async function createRoyalSeal(castles) {
     let createRoyalSealAction = {
         actions: [
             {
-                account: "msourcekings",
+                account: ACCOUNT_MSOURCEKINGS,
                 name: "craft",
                 authorization: [
                     {
@@ -156,7 +179,7 @@ async function craft(assets, recipeId) {
     let craftAction = {
         actions: [
             {
-                account: "msourcegoods",
+                account: ACCOUNT_MSOURCEGOODS,
                 name: "craft",
                 authorization: [
                     {
@@ -180,6 +203,86 @@ async function craft(assets, recipeId) {
         return true
     } catch (e) {
         console.log("Error while crafting: " + e.details[0].message)
+        return false
+    }
+}
+
+async function claimLand(assets, recipeId) {
+    let claimLandAction = {
+        actions: [
+            {
+                account: ACCOUNT_MSOURCETOKEN,
+                name: "transfer",
+                authorization: [
+                    {
+                        actor: process.env.WAX_ADDRESS,
+                        permission: "active",
+                    },
+                ],
+                data: {
+                    from: process.env.WAX_ADDRESS,
+                    to: ACCOUNT_MSOURCEGUILD,
+                    quantity: `${LAND_CLAIM_FINE_WOOD_FEE} ${TOKEN_FINEWOOD}`,
+                    memo: "deposit",
+                },
+            },
+            {
+                account: ACCOUNT_MSOURCEGUILD,
+                name: "craftwtoken",
+                authorization: [
+                    {
+                        actor: process.env.WAX_ADDRESS,
+                        permission: "active",
+                    },
+                ],
+                data: {
+                    owner: process.env.WAX_ADDRESS,
+                    pack_to_craft_template_id: PACK_2LANDS,
+                },
+            },
+        ],
+    }
+
+    try {
+        await api.transact(claimLandAction, tapos)
+        console.log("Land claimed successful!")
+
+        return true
+    } catch (e) {
+        console.log("Error while claiming land: " + e.details[0].message)
+        return false
+    }
+}
+
+async function payInstantFor2PackLand(royalSealAsset) {
+    let claimLandAction = {
+        actions: [
+            {
+                account: "atomicassets",
+                name: "transfer",
+                authorization: [
+                    {
+                        actor: process.env.WAX_ADDRESS,
+                        permission: "active",
+                    },
+                ],
+                data: {
+                    from: process.env.WAX_ADDRESS,
+                    to: ACCOUNT_MSOURCEGUILD,
+                    asset_ids: [royalSealAsset],
+                    memo: "instant:1",
+                },
+            },
+        ],
+    }
+
+    try {
+        await api.transact(claimLandAction, tapos)
+        console.log("Land claimed successful!")
+
+        return true
+    } catch (e) {
+        console.log("Error while claiming land: " + e.details[0].message)
         return false
     }
 }
@@ -261,13 +364,25 @@ async function getRoyalSeals() {
 }
 
 async function getMSourceBalance() {
-    return await rpc.get_currency_balance("msourcetoken", process.env.WAX_ADDRESS, "MSOURCE")
+    return await rpc.get_currency_balance(
+        ACCOUNT_MSOURCETOKEN,
+        process.env.WAX_ADDRESS,
+        TOKEN_MSOURCE
+    )
 }
 async function getLumberBalance() {
-    return await rpc.get_currency_balance("msourcetoken", process.env.WAX_ADDRESS, "CLUMBER")
+    return await rpc.get_currency_balance(
+        ACCOUNT_MSOURCETOKEN,
+        process.env.WAX_ADDRESS,
+        TOKEN_LUMBER
+    )
 }
 async function getFineWoodsBalance() {
-    return await rpc.get_currency_balance("msourcetoken", process.env.WAX_ADDRESS, "CFWTEMP")
+    return await rpc.get_currency_balance(
+        ACCOUNT_MSOURCETOKEN,
+        process.env.WAX_ADDRESS,
+        TOKEN_FINEWOOD
+    )
 }
 
 main()
