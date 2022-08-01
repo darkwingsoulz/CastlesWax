@@ -1,0 +1,16 @@
+{
+  "name": "CastlesNFT",
+  "version": "1.0.0",
+  "main": "autoplay.js",
+  "repository": "https://github.com/rgutierrezatx/CastlesNFT.git",
+  "author": "drk2lite",
+  "license": "MIT",
+  "dependencies": {
+    "dotenv": "^16.0.1",
+    "eosjs": "^22.1.0",
+    "node-fetch": "2"
+  },
+  "devDependencies": {
+    "prettier": "^2.7.1"
+  }
+}
