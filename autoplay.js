@@ -72,14 +72,36 @@ async function main() {
 
     console.log(`Total royal seals: ${royalSeals.length}`)
 
+    let castles = await getCraftByTemplate(TEMPLATE_LAND_CASTLE)
+    let barons = await getCraftByTemplate(TEMPLATE_ROYALBARON)
+    let lumberjacks = await getCraftByTemplate(TEMPLATE_CRAFTER_LUMBERJACK)
+    let carpenters = await getCraftByTemplate(TEMPLATE_CRAFTER_CARPENTER)
+
+    if (castles.needsCharging.length > 0 && CONFIG_ENABLE_RECHARGE_CASTLE) {
+        console.log(`Recharging ${castles.needsCharging.length} castles...`)
+        await recharge(castles.needsCharging, royalSeals)
+    }
+    if (barons.needsCharging.length > 0 && CONFIG_ENABLE_RECHARGE_ROYALBARON) {
+        console.log(`Recharging ${castles.needsCharging.length} barons...`)
+        await recharge(barons.needsCharging, royalSeals)
+    }
+    if (lumberjacks.needsCharging.length > 0 && CONFIG_ENABLE_RECHARGE_LUMBERJACK) {
+        console.log(`Recharging ${castles.needsCharging.length} lumberjacks...`)
+        await recharge(lumberjacks.needsCharging, royalSeals)
+    }
+    if (carpenters.needsCharging.length > 0 && CONFIG_ENABLE_RECHARGE_CARPENTER) {
+        console.log(`Recharging ${castles.needsCharging.length} carpenters...`)
+        await recharge(carpenters.needsCharging, royalSeals)
+    }
+
     console.log("Minting for Castles...")
-    await mint(TEMPLATE_LAND_CASTLE, CONFIG_ENABLE_RECHARGE_CASTLE, RECIPE_CASTLE, ACCOUNT_MSOURCEKINGS, royalSeals)
+    await mint(RECIPE_CASTLE, ACCOUNT_MSOURCEKINGS)
     console.log("Minting for Barons...")
-    await mint(TEMPLATE_ROYALBARON, CONFIG_ENABLE_RECHARGE_ROYALBARON, RECIPE_BARON, ACCOUNT_MSOURCEBARON, royalSeals)
+    await mint(RECIPE_BARON, ACCOUNT_MSOURCEBARON)
     console.log("Minting for Lumberjacks...")
-    await mint(TEMPLATE_CRAFTER_LUMBERJACK, CONFIG_ENABLE_RECHARGE_LUMBERJACK, RECIPE_LUMBER, ACCOUNT_MSOURCEGOODS, royalSeals)
+    await mint(RECIPE_LUMBER, ACCOUNT_MSOURCEGOODS)
     console.log("Minting for Carpenters...")
-    await mint(TEMPLATE_CRAFTER_CARPENTER, CONFIG_ENABLE_RECHARGE_CARPENTER, RECIPE_FINE_WOOD, ACCOUNT_MSOURCEGOODS, royalSeals)
+    await mint(RECIPE_FINE_WOOD, ACCOUNT_MSOURCEGOODS)
 
     console.log("Waiting on transactions...")
     await delay(5000)
@@ -103,18 +125,16 @@ async function main() {
     console.log("AutoPlay complete!")
 }
 
-async function mint(templateId, canRecharge, recipeId, contract, royalSeals) {
-    let { elgibleToMint, uneligibleToMint, needsCharging } = await getCraftByTemplate(templateId)
-
-    if (elgibleToMint.length > 0) {
+async function mint(eligibleToMint, recipeId, contract) {
+    if (eligibleToMint.length > 0) {
         let counter = 0
-        while (counter < elgibleToMint.length) {
+        while (counter < eligibleToMint.length) {
             let assets = []
             let groupSize = DEFAULT_ARRAY_MAX
-            if (counter + DEFAULT_ARRAY_MAX > elgibleToMint.length) groupSize = elgibleToMint.length - counter
+            if (counter + DEFAULT_ARRAY_MAX > eligibleToMint.length) groupSize = eligibleToMint.length - counter
 
             for (let i = counter; i < counter + groupSize; i++) {
-                assets.push(elgibleToMint[i])
+                assets.push(eligibleToMint[i])
             }
 
             await craft(assets, recipeId, contract)
@@ -122,15 +142,10 @@ async function mint(templateId, canRecharge, recipeId, contract, royalSeals) {
 
             counter += DEFAULT_ARRAY_MAX
         }
-    } else {
-        console.log("None eligible to mint")
-    }
-
-    if (needsCharging.length > 0 && canRecharge) {
-        //recharge
-        console.log("needs a recharge")
     }
 }
+
+async function recharge(assets, royalSeals) {}
 
 async function claimMSource() {
     let claimAction = {
