@@ -17,16 +17,30 @@ const tapos = {
     blocksBehind: 3,
     expireSeconds: 30,
 }
+const CONFIG_ENABLE_RECHARGE_LUMBERJACK = process.env.CONFIG_ENABLE_RECHARGE_LUMBERJACK.toLowerCase() == "true"
+const CONFIG_ENABLE_RECHARGE_CARPENTER = process.env.CONFIG_ENABLE_RECHARGE_CARPENTER.toLowerCase() == "true"
+const CONFIG_ENABLE_RECHARGE_CASTLE = process.env.CONFIG_ENABLE_RECHARGE_CASTLE.toLowerCase() == "true"
+const CONFIG_ENABLE_RECHARGE_ROYALBARON = process.env.CONFIG_ENABLE_RECHARGE_ROYALBARON.toLowerCase() == "true"
+
+const CONFIG_ENABLE_LAND_AUTO_CRAFT = process.env.CONFIG_ENABLE_LAND_AUTO_CRAFT.toLowerCase() == "true"
 
 const COLLECTION_NAME = "castlesnftgo"
-const LAND_CASTLE = 436421
-const CRAFTER_LUMBERJACK = 456608
-const CRAFTER_CARPENTER = 481431
-const MAT_ROYAL_SEAL = 411437
+
+//templates
+const TEMPLATE_LAND_CASTLE = 436421
+const TEMPLATE_ROYALBARON = 391837
+const TEMPLATE_CRAFTER_LUMBERJACK = 456608
+const TEMPLATE_CRAFTER_CARPENTER = 481431
+const TEMPLATE_MAT_ROYAL_SEAL = 411437
+const TEMPLATE_PACK_2LANDS = 527506
+
 const RECIPE_LUMBER = 1
 const RECIPE_FINE_WOOD = 2
+const RECIPE_BARON = 1
+const RECIPE_CASTLE = 1
+
 const MINT_TIMER = 24
-const PACK_2LANDS = 527506
+
 const LAND_CLAIM_FINE_WOOD_FEE = 16
 const TOKEN_FINEWOOD = "CFWTEMP"
 const TOKEN_LUMBER = "CLUMBER"
@@ -36,6 +50,9 @@ const ACCOUNT_MSOURCESTAKE = "msourcestake"
 const ACCOUNT_MSOURCEKINGS = "msourcekings"
 const ACCOUNT_MSOURCEGOODS = "msourcegoods"
 const ACCOUNT_MSOURCEGUILD = "msourceguild"
+const ACCOUNT_MSOURCEBARON = "msourcebaron"
+
+const DEFAULT_ARRAY_MAX = 10
 
 async function main() {
     console.log(`MSource Balance (Before Claim): ${await getMSourceBalance()}`)
@@ -45,6 +62,7 @@ async function main() {
     await claimMSource()
 
     //wait after claiming so balance can update
+    console.log("Waiting for transaction...")
     await delay(5000)
 
     //get current aether balance
@@ -54,65 +72,64 @@ async function main() {
 
     console.log(`Total royal seals: ${royalSeals.length}`)
 
-    //get list of castles we can mint
-    console.log("get list of castles we can mint")
-    let { elgibleToMint: eligibleCastles, uneligibleToMint: uneligibleCastles } =
-        await getCraftByTemplate(LAND_CASTLE)
+    console.log("Minting for Castles...")
+    await mint(TEMPLATE_LAND_CASTLE, CONFIG_ENABLE_RECHARGE_CASTLE, RECIPE_CASTLE, ACCOUNT_MSOURCEKINGS, royalSeals)
+    console.log("Minting for Barons...")
+    await mint(TEMPLATE_ROYALBARON, CONFIG_ENABLE_RECHARGE_ROYALBARON, RECIPE_BARON, ACCOUNT_MSOURCEBARON, royalSeals)
+    console.log("Minting for Lumberjacks...")
+    await mint(TEMPLATE_CRAFTER_LUMBERJACK, CONFIG_ENABLE_RECHARGE_LUMBERJACK, RECIPE_LUMBER, ACCOUNT_MSOURCEGOODS, royalSeals)
+    console.log("Minting for Carpenters...")
+    await mint(TEMPLATE_CRAFTER_CARPENTER, CONFIG_ENABLE_RECHARGE_CARPENTER, RECIPE_FINE_WOOD, ACCOUNT_MSOURCEGOODS, royalSeals)
 
-    if (eligibleCastles.length > 0) {
-        //mint royal seal
-        console.log(`Minting royal seals for ${eligibleCastles.length} castle(s)...`)
-
-        await createRoyalSeal(eligibleCastles)
-    } else {
-        console.log("No castles eligible for minting a royal seal")
-    }
-
-    //get list of lumberjacks we can mint
-    console.log("get list of lumberjacks we can craft")
-    let { elgibleToMint: eligibleLumberJacks, uneligibleToMint: uneligibleLumberJacks } =
-        await getCraftByTemplate(CRAFTER_LUMBERJACK)
-
-    if (eligibleLumberJacks.length > 0) {
-        //mint lumber
-        console.log(`Crafting wood for ${eligibleLumberJacks.length} lumberjacks(s)...`)
-
-        await craft(eligibleLumberJacks, RECIPE_LUMBER)
-    } else {
-        console.log("No lumberjacks eligible for crafting wood")
-    }
-
-    //get list of carpenters we can mint
-    console.log("get list of carpenters we can craft")
-
-    let { elgibleToMint: eligibleCarpenters, uneligibleToMint: uneligibleCarpenters } =
-        await getCraftByTemplate(CRAFTER_CARPENTER)
-
-    if (eligibleCarpenters.length > 0) {
-        //mint fine wood
-        console.log(`Crafting fine wood for ${eligibleCarpenters.length} carpenter(s)...`)
-
-        await craft(eligibleCarpenters, RECIPE_FINE_WOOD)
-    } else {
-        console.log("No carpenters eligible for crafting wood")
-    }
-
-    console.log("wait for blockchain")
+    console.log("Waiting on transactions...")
     await delay(5000)
 
-    let fineWoodBalance = await getFineWoodsBalance()
+    if (CONFIG_ENABLE_LAND_AUTO_CRAFT) {
+        console.log("Waiting on transactions...")
+        await delay(5000)
 
-    while (fineWoodBalance >= LAND_CLAIM_FINE_WOOD_FEE) {
-        console.log(`${fineWoodBalance} fine woods remaining, so claiming for land`)
-        if (await claimLand()) {
-            fineWoodBalance -= LAND_CLAIM_FINE_WOOD_FEE
-        } else {
-            console.log("Errors occurred claiming land, so will try again later")
-            break
+        let fineWoodBalance = await getFineWoodsBalance()
+
+        while (fineWoodBalance >= LAND_CLAIM_FINE_WOOD_FEE) {
+            console.log(`${fineWoodBalance} fine woods remaining, so claiming for land`)
+            if (await claimLand()) {
+                fineWoodBalance -= LAND_CLAIM_FINE_WOOD_FEE
+            } else {
+                console.log("Errors occurred claiming land, so will try again later")
+                break
+            }
         }
     }
-
     console.log("AutoPlay complete!")
+}
+
+async function mint(templateId, canRecharge, recipeId, contract, royalSeals) {
+    let { elgibleToMint, uneligibleToMint, needsCharging } = await getCraftByTemplate(templateId)
+
+    if (elgibleToMint.length > 0) {
+        let counter = 0
+        while (counter < elgibleToMint.length) {
+            let assets = []
+            let groupSize = DEFAULT_ARRAY_MAX
+            if (counter + DEFAULT_ARRAY_MAX > elgibleToMint.length) groupSize = elgibleToMint.length - counter
+
+            for (let i = counter; i < counter + groupSize; i++) {
+                assets.push(elgibleToMint[i])
+            }
+
+            await craft(assets, recipeId, contract)
+            await delay(1000)
+
+            counter += DEFAULT_ARRAY_MAX
+        }
+    } else {
+        console.log("None eligible to mint")
+    }
+
+    if (needsCharging.length > 0 && canRecharge) {
+        //recharge
+        console.log("needs a recharge")
+    }
 }
 
 async function claimMSource() {
@@ -144,42 +161,11 @@ async function claimMSource() {
     }
 }
 
-async function createRoyalSeal(castles) {
-    let createRoyalSealAction = {
-        actions: [
-            {
-                account: ACCOUNT_MSOURCEKINGS,
-                name: "craft",
-                authorization: [
-                    {
-                        actor: process.env.WAX_ADDRESS,
-                        permission: "active",
-                    },
-                ],
-                data: {
-                    owner: process.env.WAX_ADDRESS,
-                    asset_ids: castles,
-                    recipe_id: 1, //1 is recipe ID of royal seal
-                },
-            },
-        ],
-    }
-
-    try {
-        await api.transact(createRoyalSealAction, tapos)
-        console.log("Royal Seal minted successfully!")
-        return true
-    } catch (e) {
-        console.log("Error while minting royal seal: " + e.details[0].message)
-        return false
-    }
-}
-
-async function craft(assets, recipeId) {
+async function craft(assets, recipeId, contract) {
     let craftAction = {
         actions: [
             {
-                account: ACCOUNT_MSOURCEGOODS,
+                account: contract,
                 name: "craft",
                 authorization: [
                     {
@@ -237,7 +223,7 @@ async function claimLand(assets, recipeId) {
                 ],
                 data: {
                     owner: process.env.WAX_ADDRESS,
-                    pack_to_craft_template_id: PACK_2LANDS,
+                    pack_to_craft_template_id: TEMPLATE_PACK_2LANDS,
                 },
             },
         ],
@@ -344,7 +330,7 @@ async function getRoyalSeals() {
                 "&collection_name=" +
                 COLLECTION_NAME +
                 "&template_id=" +
-                MAT_ROYAL_SEAL
+                TEMPLATE_MAT_ROYAL_SEAL
         )
         nftItems = await nftItems.json()
 
@@ -364,25 +350,13 @@ async function getRoyalSeals() {
 }
 
 async function getMSourceBalance() {
-    return await rpc.get_currency_balance(
-        ACCOUNT_MSOURCETOKEN,
-        process.env.WAX_ADDRESS,
-        TOKEN_MSOURCE
-    )
+    return await rpc.get_currency_balance(ACCOUNT_MSOURCETOKEN, process.env.WAX_ADDRESS, TOKEN_MSOURCE)
 }
 async function getLumberBalance() {
-    return await rpc.get_currency_balance(
-        ACCOUNT_MSOURCETOKEN,
-        process.env.WAX_ADDRESS,
-        TOKEN_LUMBER
-    )
+    return await rpc.get_currency_balance(ACCOUNT_MSOURCETOKEN, process.env.WAX_ADDRESS, TOKEN_LUMBER)
 }
 async function getFineWoodsBalance() {
-    return await rpc.get_currency_balance(
-        ACCOUNT_MSOURCETOKEN,
-        process.env.WAX_ADDRESS,
-        TOKEN_FINEWOOD
-    )
+    return await rpc.get_currency_balance(ACCOUNT_MSOURCETOKEN, process.env.WAX_ADDRESS, TOKEN_FINEWOOD)
 }
 
 main()
