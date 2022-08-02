@@ -77,7 +77,7 @@ async function main() {
     let lumberjacks = await getCraftByTemplate(TEMPLATE_CRAFTER_LUMBERJACK)
     let carpenters = await getCraftByTemplate(TEMPLATE_CRAFTER_CARPENTER)
 
-    if (castles.needsCharging.length > 0 && CONFIG_ENABLE_RECHARGE_CASTLE) {
+    /* if (castles.needsCharging.length > 0 && CONFIG_ENABLE_RECHARGE_CASTLE) {
         console.log(`Recharging ${castles.needsCharging.length} castles...`)
         await recharge(castles.needsCharging, royalSeals)
     }
@@ -92,16 +92,27 @@ async function main() {
     if (carpenters.needsCharging.length > 0 && CONFIG_ENABLE_RECHARGE_CARPENTER) {
         console.log(`Recharging ${castles.needsCharging.length} carpenters...`)
         await recharge(carpenters.needsCharging, royalSeals)
-    }
+    }*/
 
-    console.log("Minting for Castles...")
-    await mint(RECIPE_CASTLE, ACCOUNT_MSOURCEKINGS)
-    console.log("Minting for Barons...")
-    await mint(RECIPE_BARON, ACCOUNT_MSOURCEBARON)
-    console.log("Minting for Lumberjacks...")
-    await mint(RECIPE_LUMBER, ACCOUNT_MSOURCEGOODS)
-    console.log("Minting for Carpenters...")
-    await mint(RECIPE_FINE_WOOD, ACCOUNT_MSOURCEGOODS)
+    if (castles.elgibleToMint.length > 0) {
+        console.log("Minting for Castles...")
+        await mint(castles.elgibleToMint, RECIPE_CASTLE, ACCOUNT_MSOURCEKINGS)
+    } else console.log("No castles to mint")
+
+    if (barons.elgibleToMint.length > 0) {
+        console.log("Minting for Barons...")
+        await mint(barons.elgibleToMint, RECIPE_BARON, ACCOUNT_MSOURCEBARON)
+    } else console.log("No barons to mint")
+
+    if (lumberjacks.elgibleToMint.length > 0) {
+        console.log("Minting for Lumberjacks...")
+        await mint(lumberjacks.elgibleToMint, RECIPE_LUMBER, ACCOUNT_MSOURCEGOODS)
+    } else console.log("No lumberjacks to mint")
+
+    if (carpenters.elgibleToMint.length > 0) {
+        console.log("Minting for Carpenters...")
+        await mint(carpenters.elgibleToMint, RECIPE_FINE_WOOD, ACCOUNT_MSOURCEGOODS)
+    } else console.log("No carpenters to mint")
 
     console.log("Waiting on transactions...")
     await delay(5000)
@@ -145,7 +156,54 @@ async function mint(eligibleToMint, recipeId, contract) {
     }
 }
 
-async function recharge(assets, royalSeals) {}
+async function rechargeCarpenter(assets, royalSeals) {
+    let rechargeAction = {
+        actions: [
+            {
+                account: ACCOUNT_MSOURCETOKEN,
+                name: "transfer",
+                authorization: [
+                    {
+                        actor: process.env.WAX_ADDRESS,
+                        permission: "active",
+                    },
+                ],
+                data: {
+                    from: process.env.WAX_ADDRESS,
+                    to: "msourcegoods",
+                    quantity: "6 CLUMBER",
+                    memo: "deposit",
+                },
+            },
+            {
+                account: "atomicassets",
+                name: "transfer",
+                authorization: [
+                    {
+                        actor: process.env.WAX_ADDRESS,
+                        permission: "active",
+                    },
+                ],
+                data: {
+                    from: process.env.WAX_ADDRESS,
+                    to: ACCOUNT_MSOURCEGOODS,
+                    asset_ids: ["1099808965773"],
+                    memo: "fix:1099732474328",
+                },
+            },
+        ],
+    }
+
+    try {
+        await api.transact(rechargeAction, tapos)
+        console.log("Craft successful!")
+
+        return true
+    } catch (e) {
+        console.log("Error while recharging: " + e.details[0].message)
+        return false
+    }
+}
 
 async function claimMSource() {
     let claimAction = {
