@@ -69,7 +69,7 @@ async function main() {
         await claimMSource()
 
         //wait after claiming so balance can update
-        console.log("Waiting for transaction...")
+        console.log("Waiting on blockchain transaction confirmations")
         await delay(5000)
 
         //get current aether balance
@@ -129,7 +129,7 @@ async function main() {
         }
 
         if (rechargeCount > 0) {
-            console.log("Waiting for recharge transactions...")
+            console.log("Waiting on blockchain transaction confirmations")
             await delay(5000)
         }
 
@@ -153,13 +153,10 @@ async function main() {
             await mint(carpenters.elgibleToMint, RECIPE_FINE_WOOD, ACCOUNT_MSOURCEGOODS)
         } else console.log("No carpenters to mint")
 
-        console.log("Waiting on transactions...")
+        console.log("Waiting on blockchain transaction confirmations")
         await delay(5000)
 
         if (CONFIG_ENABLE_LAND_AUTO_CRAFT) {
-            console.log("Waiting on transactions...")
-            await delay(5000)
-
             let fineWoodBalance = await getFineWoodsBalance()
 
             while (fineWoodBalance >= LAND_CLAIM_FINE_WOOD_FEE) {
