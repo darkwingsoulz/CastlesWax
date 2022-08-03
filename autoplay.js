@@ -58,25 +58,29 @@ const RECHARGE_CARPENTER_LUMBER_FEE = 6
 const RECHARGE_CARPENTER_ROYAL_SEAL_FEE = 1
 
 async function main() {
-    console.log(`MSource Balance (Before Claim): ${await getMSourceBalance()}`)
+    /*
+        constantly runs the program
+    */
+    while (true) {
+        console.log(`MSource Balance (Before Claim): ${await getMSourceBalance()}`)
 
-    //claiming MSOURCE
-    console.log("Claiming MSOURCE...")
-    await claimMSource()
+        //claiming MSOURCE
+        console.log("Claiming MSOURCE...")
+        await claimMSource()
 
-    //wait after claiming so balance can update
-    console.log("Waiting for transaction...")
-    await delay(5000)
+        //wait after claiming so balance can update
+        console.log("Waiting for transaction...")
+        await delay(5000)
 
-    //get current aether balance
-    console.log(`MSource Balance (After Claim): ${await getMSourceBalance()}`)
+        //get current aether balance
+        console.log(`MSource Balance (After Claim): ${await getMSourceBalance()}`)
 
-    let castles = await getCraftByTemplate(TEMPLATE_LAND_CASTLE)
-    let barons = await getCraftByTemplate(TEMPLATE_ROYALBARON)
-    let lumberjacks = await getCraftByTemplate(TEMPLATE_CRAFTER_LUMBERJACK)
-    let carpenters = await getCraftByTemplate(TEMPLATE_CRAFTER_CARPENTER)
+        let castles = await getCraftByTemplate(TEMPLATE_LAND_CASTLE)
+        let barons = await getCraftByTemplate(TEMPLATE_ROYALBARON)
+        let lumberjacks = await getCraftByTemplate(TEMPLATE_CRAFTER_LUMBERJACK)
+        let carpenters = await getCraftByTemplate(TEMPLATE_CRAFTER_CARPENTER)
 
-    /* if (castles.needsCharging.length > 0 && CONFIG_ENABLE_RECHARGE_CASTLE) {
+        /* if (castles.needsCharging.length > 0 && CONFIG_ENABLE_RECHARGE_CASTLE) {
         console.log(`Recharging ${castles.needsCharging.length} castles...`)
         await recharge(castles.needsCharging, royalSeals)
     }
@@ -90,85 +94,89 @@ async function main() {
     }
     }*/
 
-    let royalSeals = await getRoyalSeals()
-    let royalSealsUsed = 0
-    let rechargeCount = 0
+        let royalSeals = await getRoyalSeals()
+        let royalSealsUsed = 0
+        let rechargeCount = 0
 
-    if (carpenters.needsCharging.length > 0 && CONFIG_ENABLE_RECHARGE_CARPENTER) {
-        let lumberBalance = await Number(getLumberBalance())
+        if (carpenters.needsCharging.length > 0 && CONFIG_ENABLE_RECHARGE_CARPENTER) {
+            let lumberBalance = await Number(getLumberBalance())
 
-        console.log(`Recharging ${carpenters.needsCharging.length} carpenters`)
+            console.log(`Recharging ${carpenters.needsCharging.length} carpenters`)
 
-        for (let i = 0; i < carpenters.needsCharging.length; i++) {
-            //if we run out of minimum number of lumber or seals to recharge, then stop charging
-            if (lumberBalance < RECHARGE_CARPENTER_LUMBER_FEE || royalSeals.length - royalSealsUsed < RECHARGE_CARPENTER_ROYAL_SEAL_FEE) {
-                console.log("Cannot continue charging carpenters: minimum resources not met")
-                break
-            }
+            for (let i = 0; i < carpenters.needsCharging.length; i++) {
+                //if we run out of minimum number of lumber or seals to recharge, then stop charging
+                if (lumberBalance < RECHARGE_CARPENTER_LUMBER_FEE || royalSeals.length - royalSealsUsed < RECHARGE_CARPENTER_ROYAL_SEAL_FEE) {
+                    console.log("Cannot continue charging carpenters: minimum resources not met")
+                    break
+                }
 
-            let royalSealsForCarpenterRecharge = []
-            let tmpRoyalSealsUsed = royalSealsUsed
+                let royalSealsForCarpenterRecharge = []
+                let tmpRoyalSealsUsed = royalSealsUsed
 
-            for (let j = 0; j < RECHARGE_CARPENTER_ROYAL_SEAL_FEE; j++) {
-                royalSealsForCarpenterRecharge[j] = royalSeals[tmpRoyalSealsUsed]
-                tmpRoyalSealsUsed++
-            }
+                for (let j = 0; j < RECHARGE_CARPENTER_ROYAL_SEAL_FEE; j++) {
+                    royalSealsForCarpenterRecharge[j] = royalSeals[tmpRoyalSealsUsed]
+                    tmpRoyalSealsUsed++
+                }
 
-            if (await rechargeCarpenter(carpenters.needsCharging[i], royalSealsForCarpenterRecharge)) {
-                lumberBalance -= RECHARGE_CARPENTER_LUMBER_FEE
-                royalSealsUsed += tmpRoyalSealsUsed
-                rechargeCount++
-            } else {
-                break
+                if (await rechargeCarpenter(carpenters.needsCharging[i], royalSealsForCarpenterRecharge)) {
+                    lumberBalance -= RECHARGE_CARPENTER_LUMBER_FEE
+                    royalSealsUsed += tmpRoyalSealsUsed
+                    rechargeCount++
+                } else {
+                    break
+                }
             }
         }
-    }
 
-    if (rechargeCount > 0) {
-        console.log("Waiting for recharge transactions...")
-        await delay(5000)
-    }
+        if (rechargeCount > 0) {
+            console.log("Waiting for recharge transactions...")
+            await delay(5000)
+        }
 
-    if (castles.elgibleToMint.length > 0) {
-        console.log("Minting for Castles...")
-        await mint(castles.elgibleToMint, RECIPE_CASTLE, ACCOUNT_MSOURCEKINGS)
-    } else console.log("No castles to mint")
+        if (castles.elgibleToMint.length > 0) {
+            console.log("Minting for Castles...")
+            await mint(castles.elgibleToMint, RECIPE_CASTLE, ACCOUNT_MSOURCEKINGS)
+        } else console.log("No castles to mint")
 
-    if (barons.elgibleToMint.length > 0) {
-        console.log("Minting for Barons...")
-        await mint(barons.elgibleToMint, RECIPE_BARON, ACCOUNT_MSOURCEBARON)
-    } else console.log("No barons to mint")
+        if (barons.elgibleToMint.length > 0) {
+            console.log("Minting for Barons...")
+            await mint(barons.elgibleToMint, RECIPE_BARON, ACCOUNT_MSOURCEBARON)
+        } else console.log("No barons to mint")
 
-    if (lumberjacks.elgibleToMint.length > 0) {
-        console.log("Minting for Lumberjacks...")
-        await mint(lumberjacks.elgibleToMint, RECIPE_LUMBER, ACCOUNT_MSOURCEGOODS)
-    } else console.log("No lumberjacks to mint")
+        if (lumberjacks.elgibleToMint.length > 0) {
+            console.log("Minting for Lumberjacks...")
+            await mint(lumberjacks.elgibleToMint, RECIPE_LUMBER, ACCOUNT_MSOURCEGOODS)
+        } else console.log("No lumberjacks to mint")
 
-    if (carpenters.elgibleToMint.length > 0) {
-        console.log("Minting for Carpenters...")
-        await mint(carpenters.elgibleToMint, RECIPE_FINE_WOOD, ACCOUNT_MSOURCEGOODS)
-    } else console.log("No carpenters to mint")
+        if (carpenters.elgibleToMint.length > 0) {
+            console.log("Minting for Carpenters...")
+            await mint(carpenters.elgibleToMint, RECIPE_FINE_WOOD, ACCOUNT_MSOURCEGOODS)
+        } else console.log("No carpenters to mint")
 
-    console.log("Waiting on transactions...")
-    await delay(5000)
-
-    if (CONFIG_ENABLE_LAND_AUTO_CRAFT) {
         console.log("Waiting on transactions...")
         await delay(5000)
 
-        let fineWoodBalance = await getFineWoodsBalance()
+        if (CONFIG_ENABLE_LAND_AUTO_CRAFT) {
+            console.log("Waiting on transactions...")
+            await delay(5000)
 
-        while (fineWoodBalance >= LAND_CLAIM_FINE_WOOD_FEE) {
-            console.log(`${fineWoodBalance} fine woods remaining, so claiming for land`)
-            if (await claimLand()) {
-                fineWoodBalance -= LAND_CLAIM_FINE_WOOD_FEE
-            } else {
-                console.log("Errors occurred claiming land, so will try again later")
-                break
+            let fineWoodBalance = await getFineWoodsBalance()
+
+            while (fineWoodBalance >= LAND_CLAIM_FINE_WOOD_FEE) {
+                console.log(`${fineWoodBalance} fine woods remaining, so claiming for land`)
+                if (await claimLand()) {
+                    fineWoodBalance -= LAND_CLAIM_FINE_WOOD_FEE
+                } else {
+                    console.log("Errors occurred claiming land, so will try again later")
+                    break
+                }
             }
         }
+        console.log("10 minutes remaining before next cycle")
+        await delay(300000)
+        console.log("5 minutes remaining before next cycle")
+        await delay(300000)
     }
-    console.log("AutoPlay complete!")
 }
 
 async function mint(eligibleToMint, recipeId, contract) {
@@ -467,9 +475,5 @@ async function getFineWoodsBalance() {
     return await rpc.get_currency_balance(ACCOUNT_MSOURCETOKEN, process.env.WAX_ADDRESS, TOKEN_FINEWOOD)
 }
 
+//run program
 main()
-    .then(() => process.exit(0))
-    .catch((error) => {
-        console.error(error)
-        process.exit(1)
-    })
