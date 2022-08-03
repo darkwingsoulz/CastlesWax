@@ -53,9 +53,13 @@ const ACCOUNT_MSOURCEGUILD = "msourceguild"
 const ACCOUNT_MSOURCEBARON = "msourcebaron"
 
 const MINT_MAX = 10
-const RECHARGE_MAX = 9
+
 const RECHARGE_CARPENTER_LUMBER_FEE = 6
 const RECHARGE_CARPENTER_ROYAL_SEAL_FEE = 1
+const RECHARGE_CASTLE_ROYAL_SEAL_FEE = 1
+
+//needed to give enough time for blockchain transactions to be confirmed
+const TIME_BETWEEN_PROCESSES_MS = 20000
 
 async function main() {
     /*
@@ -70,91 +74,30 @@ async function main() {
 
         //wait after claiming so balance can update
         console.log("Waiting on blockchain transaction confirmations")
-        await delay(5000)
+        await delay(TIME_BETWEEN_PROCESSES_MS)
 
         //get current aether balance
         console.log(`MSource Balance (After Claim): ${await getMSourceBalance()}`)
 
-        let castles = await getCraftByTemplate(TEMPLATE_LAND_CASTLE)
-        let barons = await getCraftByTemplate(TEMPLATE_ROYALBARON)
-        let lumberjacks = await getCraftByTemplate(TEMPLATE_CRAFTER_LUMBERJACK)
-        let carpenters = await getCraftByTemplate(TEMPLATE_CRAFTER_CARPENTER)
-
-        /* if (castles.needsCharging.length > 0 && CONFIG_ENABLE_RECHARGE_CASTLE) {
-        console.log(`Recharging ${castles.needsCharging.length} castles...`)
-        await recharge(castles.needsCharging, royalSeals)
-    }
-    if (barons.needsCharging.length > 0 && CONFIG_ENABLE_RECHARGE_ROYALBARON) {
-        console.log(`Recharging ${castles.needsCharging.length} barons...`)
-        await recharge(barons.needsCharging, royalSeals)
-    }
-    if (lumberjacks.needsCharging.length > 0 && CONFIG_ENABLE_RECHARGE_LUMBERJACK) {
-        console.log(`Recharging ${castles.needsCharging.length} lumberjacks...`)
-        await recharge(lumberjacks.needsCharging, royalSeals)
-    }
-    }*/
-
-        let royalSeals = await getRoyalSeals()
-        let royalSealsUsed = 0
-        let rechargeCount = 0
-
-        if (carpenters.needsCharging.length > 0 && CONFIG_ENABLE_RECHARGE_CARPENTER) {
-            let lumberBalance = await Number(getLumberBalance())
-
-            console.log(`Recharging ${carpenters.needsCharging.length} carpenters`)
-
-            for (let i = 0; i < carpenters.needsCharging.length; i++) {
-                //if we run out of minimum number of lumber or seals to recharge, then stop charging
-                if (lumberBalance < RECHARGE_CARPENTER_LUMBER_FEE || royalSeals.length - royalSealsUsed < RECHARGE_CARPENTER_ROYAL_SEAL_FEE) {
-                    console.log("Cannot continue charging carpenters: minimum resources not met")
-                    break
-                }
-
-                let royalSealsForCarpenterRecharge = []
-                let tmpRoyalSealsUsed = royalSealsUsed
-
-                for (let j = 0; j < RECHARGE_CARPENTER_ROYAL_SEAL_FEE; j++) {
-                    royalSealsForCarpenterRecharge[j] = royalSeals[tmpRoyalSealsUsed]
-                    tmpRoyalSealsUsed++
-                }
-
-                if (await rechargeCarpenter(carpenters.needsCharging[i], royalSealsForCarpenterRecharge)) {
-                    lumberBalance -= RECHARGE_CARPENTER_LUMBER_FEE
-                    royalSealsUsed += tmpRoyalSealsUsed
-                    rechargeCount++
-                } else {
-                    break
-                }
-            }
-        }
+        let rechargeCount = await rechargeAssets()
 
         if (rechargeCount > 0) {
             console.log("Waiting on blockchain transaction confirmations")
-            await delay(5000)
+            await delay(TIME_BETWEEN_PROCESSES_MS)
         }
 
-        if (castles.elgibleToMint.length > 0) {
-            console.log("Minting for Castles...")
-            await mint(castles.elgibleToMint, RECIPE_CASTLE, ACCOUNT_MSOURCEKINGS)
-        } else console.log("No castles to mint")
+        let didMint = await mintAssets()
+        if (didMint) {
+            console.log("Waiting on blockchain transaction confirmations")
+            await delay(TIME_BETWEEN_PROCESSES_MS)
+        }
 
-        if (barons.elgibleToMint.length > 0) {
-            console.log("Minting for Barons...")
-            await mint(barons.elgibleToMint, RECIPE_BARON, ACCOUNT_MSOURCEBARON)
-        } else console.log("No barons to mint")
-
-        if (lumberjacks.elgibleToMint.length > 0) {
-            console.log("Minting for Lumberjacks...")
-            await mint(lumberjacks.elgibleToMint, RECIPE_LUMBER, ACCOUNT_MSOURCEGOODS)
-        } else console.log("No lumberjacks to mint")
-
-        if (carpenters.elgibleToMint.length > 0) {
-            console.log("Minting for Carpenters...")
-            await mint(carpenters.elgibleToMint, RECIPE_FINE_WOOD, ACCOUNT_MSOURCEGOODS)
-        } else console.log("No carpenters to mint")
-
-        console.log("Waiting on blockchain transaction confirmations")
-        await delay(5000)
+        //check for assets needing a recharge after mint
+        rechargeCount = await rechargeAssets()
+        if (rechargeCount > 0) {
+            console.log("Waiting on blockchain transaction confirmations")
+            await delay(TIME_BETWEEN_PROCESSES_MS)
+        }
 
         if (CONFIG_ENABLE_LAND_AUTO_CRAFT) {
             let fineWoodBalance = await getFineWoodsBalance()
@@ -176,6 +119,121 @@ async function main() {
     }
 }
 
+async function mintAssets() {
+    let didAnyAssetMint = false
+
+    let castles = await getCraftByTemplate(TEMPLATE_LAND_CASTLE)
+    let barons = await getCraftByTemplate(TEMPLATE_ROYALBARON)
+    let lumberjacks = await getCraftByTemplate(TEMPLATE_CRAFTER_LUMBERJACK)
+    let carpenters = await getCraftByTemplate(TEMPLATE_CRAFTER_CARPENTER)
+
+    if (castles.elgibleToMint.length > 0) {
+        console.log("Minting for Castles...")
+        await mint(castles.elgibleToMint, RECIPE_CASTLE, ACCOUNT_MSOURCEKINGS)
+        didAnyAssetMint = true
+    } else console.log("No castles to mint")
+
+    if (barons.elgibleToMint.length > 0) {
+        console.log("Minting for Barons...")
+        await mint(barons.elgibleToMint, RECIPE_BARON, ACCOUNT_MSOURCEBARON)
+        didAnyAssetMint = true
+    } else console.log("No barons to mint")
+
+    if (lumberjacks.elgibleToMint.length > 0) {
+        console.log("Minting for Lumberjacks...")
+        await mint(lumberjacks.elgibleToMint, RECIPE_LUMBER, ACCOUNT_MSOURCEGOODS)
+        didAnyAssetMint = true
+    } else console.log("No lumberjacks to mint")
+
+    if (carpenters.elgibleToMint.length > 0) {
+        console.log("Minting for Carpenters...")
+        await mint(carpenters.elgibleToMint, RECIPE_FINE_WOOD, ACCOUNT_MSOURCEGOODS)
+        didAnyAssetMint = true
+    } else console.log("No carpenters to mint")
+
+    return didAnyAssetMint
+}
+async function rechargeAssets() {
+    let castles = await getCraftByTemplate(TEMPLATE_LAND_CASTLE)
+    let barons = await getCraftByTemplate(TEMPLATE_ROYALBARON)
+    let lumberjacks = await getCraftByTemplate(TEMPLATE_CRAFTER_LUMBERJACK)
+    let carpenters = await getCraftByTemplate(TEMPLATE_CRAFTER_CARPENTER)
+
+    /* 
+    if (barons.needsCharging.length > 0 && CONFIG_ENABLE_RECHARGE_ROYALBARON) {
+        console.log(`Recharging ${castles.needsCharging.length} barons...`)
+        await recharge(barons.needsCharging, royalSeals)
+    }
+    if (lumberjacks.needsCharging.length > 0 && CONFIG_ENABLE_RECHARGE_LUMBERJACK) {
+        console.log(`Recharging ${castles.needsCharging.length} lumberjacks...`)
+        await recharge(lumberjacks.needsCharging, royalSeals)
+    }
+    }*/
+
+    let royalSeals = await getRoyalSeals()
+    let royalSealsUsed = 0
+    let rechargeCount = 0
+
+    if (castles.needsCharging.length > 0 && CONFIG_ENABLE_RECHARGE_CASTLE) {
+        console.log(`Recharging ${castles.needsCharging.length} castle`)
+
+        for (let i = 0; i < castles.needsCharging.length; i++) {
+            //if we run out of minimum number of lumber or seals to recharge, then stop charging
+            if (royalSeals.length - royalSealsUsed < RECHARGE_CASTLE_ROYAL_SEAL_FEE) {
+                console.log("Cannot continue charging castles: minimum resources not met")
+                break
+            }
+
+            let royalSealsForRecharge = []
+            let tmpRoyalSealsUsed = royalSealsUsed
+
+            for (let j = 0; j < RECHARGE_CASTLE_ROYAL_SEAL_FEE; j++) {
+                royalSealsForRecharge[j] = royalSeals[tmpRoyalSealsUsed]
+                tmpRoyalSealsUsed++
+            }
+
+            if (await rechargeCastle(castles.needsCharging[i], royalSealsForRecharge)) {
+                royalSealsUsed += tmpRoyalSealsUsed
+                rechargeCount++
+            } else {
+                break
+            }
+        }
+    }
+
+    if (carpenters.needsCharging.length > 0 && CONFIG_ENABLE_RECHARGE_CARPENTER) {
+        let lumberBalance = await Number(getLumberBalance())
+
+        console.log(`Recharging ${carpenters.needsCharging.length} carpenters`)
+
+        for (let i = 0; i < carpenters.needsCharging.length; i++) {
+            //if we run out of minimum number of lumber or seals to recharge, then stop charging
+            if (lumberBalance < RECHARGE_CARPENTER_LUMBER_FEE || royalSeals.length - royalSealsUsed < RECHARGE_CARPENTER_ROYAL_SEAL_FEE) {
+                console.log("Cannot continue charging carpenters: minimum resources not met")
+                break
+            }
+
+            let royalSealsForRecharge = []
+            let tmpRoyalSealsUsed = royalSealsUsed
+
+            for (let j = 0; j < RECHARGE_CARPENTER_ROYAL_SEAL_FEE; j++) {
+                royalSealsForRecharge[j] = royalSeals[tmpRoyalSealsUsed]
+                tmpRoyalSealsUsed++
+            }
+
+            if (await rechargeCarpenter(carpenters.needsCharging[i], royalSealsForRecharge)) {
+                lumberBalance -= RECHARGE_CARPENTER_LUMBER_FEE
+                royalSealsUsed += tmpRoyalSealsUsed
+                rechargeCount++
+            } else {
+                break
+            }
+        }
+    }
+
+    return rechargeCount
+}
+
 async function mint(eligibleToMint, recipeId, contract) {
     if (eligibleToMint.length > 0) {
         let counter = 0
@@ -189,10 +247,42 @@ async function mint(eligibleToMint, recipeId, contract) {
             }
 
             await craft(assets, recipeId, contract)
-            await delay(1000)
 
             counter += MINT_MAX
         }
+    }
+}
+
+async function rechargeCastle(castleId, royalSeals) {
+    let rechargeAction = {
+        actions: [
+            {
+                account: "atomicassets",
+                name: "transfer",
+                authorization: [
+                    {
+                        actor: process.env.WAX_ADDRESS,
+                        permission: "active",
+                    },
+                ],
+                data: {
+                    from: process.env.WAX_ADDRESS,
+                    to: ACCOUNT_MSOURCEKINGS,
+                    asset_ids: royalSeals,
+                    memo: `fix:${castleId}`,
+                },
+            },
+        ],
+    }
+
+    try {
+        await api.transact(rechargeAction, tapos)
+        console.log("Recharge successful!")
+
+        return true
+    } catch (e) {
+        console.log("Error while recharging: " + e)
+        return false
     }
 }
 
