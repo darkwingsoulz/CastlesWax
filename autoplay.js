@@ -52,7 +52,10 @@ const ACCOUNT_MSOURCEGOODS = "msourcegoods"
 const ACCOUNT_MSOURCEGUILD = "msourceguild"
 const ACCOUNT_MSOURCEBARON = "msourcebaron"
 
-const DEFAULT_ARRAY_MAX = 10
+const MINT_MAX = 10
+const RECHARGE_MAX = 9
+const RECHARGE_CARPENTER_LUMBER_FEE = 6
+const RECHARGE_CARPENTER_ROYAL_SEAL_FEE = 1
 
 async function main() {
     console.log(`MSource Balance (Before Claim): ${await getMSourceBalance()}`)
@@ -67,10 +70,6 @@ async function main() {
 
     //get current aether balance
     console.log(`MSource Balance (After Claim): ${await getMSourceBalance()}`)
-
-    let royalSeals = await getRoyalSeals()
-
-    console.log(`Total royal seals: ${royalSeals.length}`)
 
     let castles = await getCraftByTemplate(TEMPLATE_LAND_CASTLE)
     let barons = await getCraftByTemplate(TEMPLATE_ROYALBARON)
@@ -89,10 +88,46 @@ async function main() {
         console.log(`Recharging ${castles.needsCharging.length} lumberjacks...`)
         await recharge(lumberjacks.needsCharging, royalSeals)
     }
-    if (carpenters.needsCharging.length > 0 && CONFIG_ENABLE_RECHARGE_CARPENTER) {
-        console.log(`Recharging ${castles.needsCharging.length} carpenters...`)
-        await recharge(carpenters.needsCharging, royalSeals)
     }*/
+
+    let royalSeals = await getRoyalSeals()
+    let royalSealsUsed = 0
+    let rechargeCount = 0
+
+    if (carpenters.needsCharging.length > 0 && CONFIG_ENABLE_RECHARGE_CARPENTER) {
+        let lumberBalance = await Number(getLumberBalance())
+
+        console.log(`Recharging ${carpenters.needsCharging.length} carpenters`)
+
+        for (let i = 0; i < carpenters.needsCharging.length; i++) {
+            //if we run out of minimum number of lumber or seals to recharge, then stop charging
+            if (lumberBalance < RECHARGE_CARPENTER_LUMBER_FEE || royalSeals.length - royalSealsUsed < RECHARGE_CARPENTER_ROYAL_SEAL_FEE) {
+                console.log("Cannot continue charging carpenters: minimum resources not met")
+                break
+            }
+
+            let royalSealsForCarpenterRecharge = []
+            let tmpRoyalSealsUsed = royalSealsUsed
+
+            for (let j = 0; j < RECHARGE_CARPENTER_ROYAL_SEAL_FEE; j++) {
+                royalSealsForCarpenterRecharge[j] = royalSeals[tmpRoyalSealsUsed]
+                tmpRoyalSealsUsed++
+            }
+
+            if (await rechargeCarpenter(carpenters.needsCharging[i], royalSealsForCarpenterRecharge)) {
+                lumberBalance -= RECHARGE_CARPENTER_LUMBER_FEE
+                royalSealsUsed += tmpRoyalSealsUsed
+                rechargeCount++
+            } else {
+                break
+            }
+        }
+    }
+
+    if (rechargeCount > 0) {
+        console.log("Waiting for recharge transactions...")
+        await delay(5000)
+    }
 
     if (castles.elgibleToMint.length > 0) {
         console.log("Minting for Castles...")
@@ -141,8 +176,8 @@ async function mint(eligibleToMint, recipeId, contract) {
         let counter = 0
         while (counter < eligibleToMint.length) {
             let assets = []
-            let groupSize = DEFAULT_ARRAY_MAX
-            if (counter + DEFAULT_ARRAY_MAX > eligibleToMint.length) groupSize = eligibleToMint.length - counter
+            let groupSize = MINT_MAX
+            if (counter + MINT_MAX > eligibleToMint.length) groupSize = eligibleToMint.length - counter
 
             for (let i = counter; i < counter + groupSize; i++) {
                 assets.push(eligibleToMint[i])
@@ -151,12 +186,12 @@ async function mint(eligibleToMint, recipeId, contract) {
             await craft(assets, recipeId, contract)
             await delay(1000)
 
-            counter += DEFAULT_ARRAY_MAX
+            counter += MINT_MAX
         }
     }
 }
 
-async function rechargeCarpenter(assets, royalSeals) {
+async function rechargeCarpenter(carpenterId, royalSeals) {
     let rechargeAction = {
         actions: [
             {
@@ -170,8 +205,8 @@ async function rechargeCarpenter(assets, royalSeals) {
                 ],
                 data: {
                     from: process.env.WAX_ADDRESS,
-                    to: "msourcegoods",
-                    quantity: "6 CLUMBER",
+                    to: ACCOUNT_MSOURCEGOODS,
+                    quantity: `${RECHARGE_CARPENTER_LUMBER_FEE} ${TOKEN_LUMBER}`,
                     memo: "deposit",
                 },
             },
@@ -187,8 +222,8 @@ async function rechargeCarpenter(assets, royalSeals) {
                 data: {
                     from: process.env.WAX_ADDRESS,
                     to: ACCOUNT_MSOURCEGOODS,
-                    asset_ids: ["1099808965773"],
-                    memo: "fix:1099732474328",
+                    asset_ids: royalSeals,
+                    memo: `fix:${carpenterId}`,
                 },
             },
         ],
@@ -196,11 +231,11 @@ async function rechargeCarpenter(assets, royalSeals) {
 
     try {
         await api.transact(rechargeAction, tapos)
-        console.log("Craft successful!")
+        console.log("Recharge successful!")
 
         return true
     } catch (e) {
-        console.log("Error while recharging: " + e.details[0].message)
+        console.log("Error while recharging: " + e)
         return false
     }
 }
