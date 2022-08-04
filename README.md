@@ -14,7 +14,7 @@ Wax accounts can be created here: https://wax.bloks.io/
 
 Wax Cloud accounts are not supported since you do not own your keys
 
-This script is intended to be run via command line not through a browser
+This script is intended to be run via command line and not through a browser
 
 ## Objectives
 
