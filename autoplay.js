@@ -2,11 +2,19 @@ const fetch = require("node-fetch")
 const { Api, JsonRpc, RpcError } = require("eosjs")
 const { JsSignatureProvider } = require("eosjs/dist/eosjs-jssig") // development only
 const { TextEncoder, TextDecoder } = require("util")
-const delay = (time) => new Promise((res) => setTimeout(res, time))
+
 require("dotenv").config()
 
+const CONFIG_ENABLE_RECHARGE_LUMBERJACK = process.env.CONFIG_ENABLE_RECHARGE_LUMBERJACK.toLowerCase() == "true"
+const CONFIG_ENABLE_RECHARGE_CARPENTER = process.env.CONFIG_ENABLE_RECHARGE_CARPENTER.toLowerCase() == "true"
+const CONFIG_ENABLE_RECHARGE_CASTLE = process.env.CONFIG_ENABLE_RECHARGE_CASTLE.toLowerCase() == "true"
+const CONFIG_ENABLE_RECHARGE_ROYALBARON = process.env.CONFIG_ENABLE_RECHARGE_ROYALBARON.toLowerCase() == "true"
+const CONFIG_ENABLE_LAND_AUTO_CRAFT = process.env.CONFIG_ENABLE_LAND_AUTO_CRAFT.toLowerCase() == "true"
+const CONFIG_WAX_PRIVATE_KEY = process.env.WAX_PRIVATE_KEY
+const CONFIG_WAX_ADDRESS = process.env.WAX_ADDRESS
+
 const rpc = new JsonRpc("https://wax.greymass.com", { fetch })
-const signatureProvider = new JsSignatureProvider([process.env.WAX_PRIVATE_KEY])
+const signatureProvider = new JsSignatureProvider([CONFIG_WAX_PRIVATE_KEY])
 const api = new Api({
     rpc,
     signatureProvider,
@@ -17,12 +25,7 @@ const tapos = {
     blocksBehind: 3,
     expireSeconds: 30,
 }
-const CONFIG_ENABLE_RECHARGE_LUMBERJACK = process.env.CONFIG_ENABLE_RECHARGE_LUMBERJACK.toLowerCase() == "true"
-const CONFIG_ENABLE_RECHARGE_CARPENTER = process.env.CONFIG_ENABLE_RECHARGE_CARPENTER.toLowerCase() == "true"
-const CONFIG_ENABLE_RECHARGE_CASTLE = process.env.CONFIG_ENABLE_RECHARGE_CASTLE.toLowerCase() == "true"
-const CONFIG_ENABLE_RECHARGE_ROYALBARON = process.env.CONFIG_ENABLE_RECHARGE_ROYALBARON.toLowerCase() == "true"
-
-const CONFIG_ENABLE_LAND_AUTO_CRAFT = process.env.CONFIG_ENABLE_LAND_AUTO_CRAFT.toLowerCase() == "true"
+const delay = (time) => new Promise((res) => setTimeout(res, time))
 
 const COLLECTION_NAME = "castlesnftgo"
 
@@ -280,12 +283,12 @@ async function rechargeCastle(castleId, royalSeals) {
                     name: "transfer",
                     authorization: [
                         {
-                            actor: process.env.WAX_ADDRESS,
+                            actor: CONFIG_WAX_ADDRESS,
                             permission: "active",
                         },
                     ],
                     data: {
-                        from: process.env.WAX_ADDRESS,
+                        from: CONFIG_WAX_ADDRESS,
                         to: ACCOUNT_MSOURCEKINGS,
                         asset_ids: royalSeals,
                         memo: `fix:${castleId}`,
@@ -313,12 +316,12 @@ async function rechargeCarpenter(carpenterId, royalSeals) {
                     name: "transfer",
                     authorization: [
                         {
-                            actor: process.env.WAX_ADDRESS,
+                            actor: CONFIG_WAX_ADDRESS,
                             permission: "active",
                         },
                     ],
                     data: {
-                        from: process.env.WAX_ADDRESS,
+                        from: CONFIG_WAX_ADDRESS,
                         to: ACCOUNT_MSOURCEGOODS,
                         quantity: `${RECHARGE_CARPENTER_LUMBER_FEE} ${TOKEN_LUMBER}`,
                         memo: "deposit",
@@ -329,12 +332,12 @@ async function rechargeCarpenter(carpenterId, royalSeals) {
                     name: "transfer",
                     authorization: [
                         {
-                            actor: process.env.WAX_ADDRESS,
+                            actor: CONFIG_WAX_ADDRESS,
                             permission: "active",
                         },
                     ],
                     data: {
-                        from: process.env.WAX_ADDRESS,
+                        from: CONFIG_WAX_ADDRESS,
                         to: ACCOUNT_MSOURCEGOODS,
                         asset_ids: royalSeals,
                         memo: `fix:${carpenterId}`,
@@ -362,12 +365,12 @@ async function claimMSource() {
                     name: "claim",
                     authorization: [
                         {
-                            actor: process.env.WAX_ADDRESS,
+                            actor: CONFIG_WAX_ADDRESS,
                             permission: "active",
                         },
                     ],
                     data: {
-                        player: process.env.WAX_ADDRESS,
+                        player: CONFIG_WAX_ADDRESS,
                     },
                 },
             ],
@@ -391,12 +394,12 @@ async function craft(assets, recipeId, contract) {
                     name: "craft",
                     authorization: [
                         {
-                            actor: process.env.WAX_ADDRESS,
+                            actor: CONFIG_WAX_ADDRESS,
                             permission: "active",
                         },
                     ],
                     data: {
-                        owner: process.env.WAX_ADDRESS,
+                        owner: CONFIG_WAX_ADDRESS,
                         asset_ids: assets,
                         recipe_id: recipeId,
                     },
@@ -423,12 +426,12 @@ async function claimLand(assets, recipeId) {
                     name: "transfer",
                     authorization: [
                         {
-                            actor: process.env.WAX_ADDRESS,
+                            actor: CONFIG_WAX_ADDRESS,
                             permission: "active",
                         },
                     ],
                     data: {
-                        from: process.env.WAX_ADDRESS,
+                        from: CONFIG_WAX_ADDRESS,
                         to: ACCOUNT_MSOURCEGUILD,
                         quantity: `${LAND_CLAIM_FINE_WOOD_FEE} ${TOKEN_FINEWOOD}`,
                         memo: "deposit",
@@ -439,12 +442,12 @@ async function claimLand(assets, recipeId) {
                     name: "craftwtoken",
                     authorization: [
                         {
-                            actor: process.env.WAX_ADDRESS,
+                            actor: CONFIG_WAX_ADDRESS,
                             permission: "active",
                         },
                     ],
                     data: {
-                        owner: process.env.WAX_ADDRESS,
+                        owner: CONFIG_WAX_ADDRESS,
                         pack_to_craft_template_id: TEMPLATE_PACK_2LANDS,
                     },
                 },
@@ -470,12 +473,12 @@ async function payInstantFor2PackLand(royalSealAsset) {
                     name: "transfer",
                     authorization: [
                         {
-                            actor: process.env.WAX_ADDRESS,
+                            actor: CONFIG_WAX_ADDRESS,
                             permission: "active",
                         },
                     ],
                     data: {
-                        from: process.env.WAX_ADDRESS,
+                        from: CONFIG_WAX_ADDRESS,
                         to: ACCOUNT_MSOURCEGUILD,
                         asset_ids: [royalSealAsset],
                         memo: "instant:1",
@@ -507,7 +510,7 @@ async function getCraftByTemplate(templateId) {
                 "https://wax.api.atomicassets.io/atomicassets/v1/assets?page=" +
                     page +
                     "&limit=40&owner=" +
-                    process.env.WAX_ADDRESS +
+                    CONFIG_WAX_ADDRESS +
                     "&collection_name=" +
                     COLLECTION_NAME +
                     "&template_id=" +
@@ -555,7 +558,7 @@ async function getRoyalSeals() {
                 "https://wax.api.atomicassets.io/atomicassets/v1/assets?page=" +
                     page +
                     "&limit=40&owner=" +
-                    process.env.WAX_ADDRESS +
+                    CONFIG_WAX_ADDRESS +
                     "&collection_name=" +
                     COLLECTION_NAME +
                     "&template_id=" +
@@ -584,7 +587,7 @@ async function getRoyalSeals() {
 
 async function getMSourceBalance() {
     try {
-        return await rpc.get_currency_balance(ACCOUNT_MSOURCETOKEN, process.env.WAX_ADDRESS, TOKEN_MSOURCE)
+        return await rpc.get_currency_balance(ACCOUNT_MSOURCETOKEN, CONFIG_WAX_ADDRESS, TOKEN_MSOURCE)
     } catch (err) {
         console.log(`getMSourceBalance: Error -  + ${err}`)
         return 0
@@ -592,7 +595,7 @@ async function getMSourceBalance() {
 }
 async function getLumberBalance() {
     try {
-        return await rpc.get_currency_balance(ACCOUNT_MSOURCETOKEN, process.env.WAX_ADDRESS, TOKEN_LUMBER)
+        return await rpc.get_currency_balance(ACCOUNT_MSOURCETOKEN, CONFIG_WAX_ADDRESS, TOKEN_LUMBER)
     } catch (err) {
         console.log(`getLumberBalance: Error -  + ${err}`)
         return 0
@@ -600,7 +603,7 @@ async function getLumberBalance() {
 }
 async function getFineWoodsBalance() {
     try {
-        return await rpc.get_currency_balance(ACCOUNT_MSOURCETOKEN, process.env.WAX_ADDRESS, TOKEN_FINEWOOD)
+        return await rpc.get_currency_balance(ACCOUNT_MSOURCETOKEN, CONFIG_WAX_ADDRESS, TOKEN_FINEWOOD)
     } catch (err) {
         console.log(`getFineWoodsBalance: Error -  + ${err}`)
         return 0
