@@ -8,7 +8,7 @@ Link to game: https://castlesnft.io/
 NODE required
 https://nodejs.org/en/download/
 
-WAX account with private key
+Wax account with private key
 
 Wax accounts can be created here: https://wax.bloks.io/
 
