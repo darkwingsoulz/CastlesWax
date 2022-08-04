@@ -11,7 +11,7 @@ const CONFIG_ENABLE_RECHARGE_CASTLE = process.env.CONFIG_ENABLE_RECHARGE_CASTLE.
 const CONFIG_ENABLE_RECHARGE_ROYALBARON = process.env.CONFIG_ENABLE_RECHARGE_ROYALBARON.toLowerCase() == "true"
 const CONFIG_ENABLE_LAND_AUTO_CRAFT = process.env.CONFIG_ENABLE_LAND_AUTO_CRAFT.toLowerCase() == "true"
 const CONFIG_WAX_PRIVATE_KEY = process.env.WAX_PRIVATE_KEY
-const CONFIG_WAX_ADDRESS = process.env.WAX_ADDRESS
+const CONFIG_WAX_ADDRESS = process.env.WAX_ADDRESS.toLowerCase()
 
 const rpc = new JsonRpc("https://wax.greymass.com", { fetch })
 const signatureProvider = new JsSignatureProvider([CONFIG_WAX_PRIVATE_KEY])
