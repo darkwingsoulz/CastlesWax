@@ -11,6 +11,7 @@ Wax accounts can be created here
 https://wax.bloks.io/
 
 Wax Cloud accounts are not supported since you do not own your keys
+
 This script is intended to be run via command line not through a browser
 
 ## Objectives
@@ -19,6 +20,7 @@ This script is intended to be run via command line not through a browser
 - Mint for Barons, Castles, Lumberjacks, Carpenters
 - Auto claim land from fine wood
 - Auto claim MSOURCE
+- Runs in indefinite loop until you quit the program
  
 ## Configuration
 ```bash
