@@ -134,26 +134,22 @@ async function mintAssets() {
 
         if (castles.elgibleToMint.length > 0) {
             console.log("Minting for Castles...")
-            await mint(castles.elgibleToMint, RECIPE_CASTLE, ACCOUNT_MSOURCEKINGS)
-            didAnyAssetMint = true
+            if (await mint(castles.elgibleToMint, RECIPE_CASTLE, ACCOUNT_MSOURCEKINGS)) didAnyAssetMint = true
         } else console.log("No castles to mint")
 
         if (barons.elgibleToMint.length > 0) {
             console.log("Minting for Barons...")
-            await mint(barons.elgibleToMint, RECIPE_BARON, ACCOUNT_MSOURCEBARON)
-            didAnyAssetMint = true
+            if (await mint(barons.elgibleToMint, RECIPE_BARON, ACCOUNT_MSOURCEBARON)) didAnyAssetMint = true
         } else console.log("No barons to mint")
 
         if (lumberjacks.elgibleToMint.length > 0) {
             console.log("Minting for Lumberjacks...")
-            await mint(lumberjacks.elgibleToMint, RECIPE_LUMBER, ACCOUNT_MSOURCEGOODS)
-            didAnyAssetMint = true
+            if (await mint(lumberjacks.elgibleToMint, RECIPE_LUMBER, ACCOUNT_MSOURCEGOODS)) didAnyAssetMint = true
         } else console.log("No lumberjacks to mint")
 
         if (carpenters.elgibleToMint.length > 0) {
             console.log("Minting for Carpenters...")
-            await mint(carpenters.elgibleToMint, RECIPE_FINE_WOOD, ACCOUNT_MSOURCEGOODS)
-            didAnyAssetMint = true
+            if (await mint(carpenters.elgibleToMint, RECIPE_FINE_WOOD, ACCOUNT_MSOURCEGOODS)) didAnyAssetMint = true
         } else console.log("No carpenters to mint")
 
         return didAnyAssetMint
@@ -162,6 +158,7 @@ async function mintAssets() {
         return false
     }
 }
+
 async function rechargeAssets() {
     try {
         let castles = await getCraftByTemplate(TEMPLATE_LAND_CASTLE)
@@ -240,12 +237,11 @@ async function rechargeAssets() {
                 }
             }
         }
-
-        return rechargeCount
     } catch (err) {
         console.log(`rechargeAssets: Error -  + ${err}`)
-        return -1
     }
+
+    return rechargeCount
 }
 
 async function mint(eligibleToMint, recipeId, contract) {
@@ -261,7 +257,7 @@ async function mint(eligibleToMint, recipeId, contract) {
                     assets.push(eligibleToMint[i])
                 }
 
-                await craft(assets, recipeId, contract)
+                if (!(await craft(assets, recipeId, contract))) return false
 
                 counter += MINT_MAX
             }
@@ -536,12 +532,15 @@ async function getCraftByTemplate(templateId) {
             if (nftItems.length < 40) keepLooking = false
             else await delay(20)
         }
-
-        return { elgibleToMint, uneligibleToMint, needsCharging }
     } catch (err) {
         console.log(`getCraftByTemplate: Error -  + ${err}`)
-        return null
+
+        elgibleToMint = []
+        uneligibleToMint = []
+        needsCharging = []
     }
+
+    return { elgibleToMint, uneligibleToMint, needsCharging }
 }
 
 async function getRoyalSeals() {
@@ -579,7 +578,7 @@ async function getRoyalSeals() {
         return royalSeals
     } catch (err) {
         console.log(`getRoyalSeals: Error -  + ${err}`)
-        return null
+        return []
     }
 }
 
@@ -588,7 +587,7 @@ async function getMSourceBalance() {
         return await rpc.get_currency_balance(ACCOUNT_MSOURCETOKEN, process.env.WAX_ADDRESS, TOKEN_MSOURCE)
     } catch (err) {
         console.log(`getMSourceBalance: Error -  + ${err}`)
-        return null
+        return 0
     }
 }
 async function getLumberBalance() {
@@ -596,7 +595,7 @@ async function getLumberBalance() {
         return await rpc.get_currency_balance(ACCOUNT_MSOURCETOKEN, process.env.WAX_ADDRESS, TOKEN_LUMBER)
     } catch (err) {
         console.log(`getLumberBalance: Error -  + ${err}`)
-        return null
+        return 0
     }
 }
 async function getFineWoodsBalance() {
@@ -604,7 +603,7 @@ async function getFineWoodsBalance() {
         return await rpc.get_currency_balance(ACCOUNT_MSOURCETOKEN, process.env.WAX_ADDRESS, TOKEN_FINEWOOD)
     } catch (err) {
         console.log(`getFineWoodsBalance: Error -  + ${err}`)
-        return null
+        return 0
     }
 }
 
