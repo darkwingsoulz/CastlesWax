@@ -9,8 +9,8 @@ NODE required
 https://nodejs.org/en/download/
 
 WAX account with private key
-Wax accounts can be created here
-https://wax.bloks.io/
+
+Wax accounts can be created here: https://wax.bloks.io/
 
 Wax Cloud accounts are not supported since you do not own your keys
 
