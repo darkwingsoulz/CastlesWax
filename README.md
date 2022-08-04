@@ -1,5 +1,7 @@
-# Castles on Wax
-Scripts for the Castles game on wax
+## Castles on Wax
+Scripts to automate gameplay for Castles on wax blockchain
+
+Link to game: https://castlesnft.io/
 
 ## Prerequisites
 
