@@ -62,7 +62,7 @@ const RECHARGE_CARPENTER_ROYAL_SEAL_FEE = 1
 const RECHARGE_CASTLE_ROYAL_SEAL_FEE = 1
 
 //needed to give enough time for blockchain transactions to be confirmed
-const TIME_BETWEEN_PROCESSES_MS = 20000
+const TXN_WAIT_TIME_MS = 20000
 
 async function main() {
     /*
@@ -74,33 +74,33 @@ async function main() {
 
             //claiming MSOURCE
             console.log("Claiming MSOURCE...")
-            await claimMSource()
+            if (await claimMSource()) {
+                //wait after claiming so balance can update
+                console.log("Waiting on blockchain transaction confirmations")
+                await delay(TXN_WAIT_TIME_MS)
 
-            //wait after claiming so balance can update
-            console.log("Waiting on blockchain transaction confirmations")
-            await delay(TIME_BETWEEN_PROCESSES_MS)
-
-            //get current aether balance
-            console.log(`MSource Balance (After Claim): ${await getMSourceBalance()}`)
+                //get current aether balance
+                console.log(`MSource Balance (After Claim): ${await getMSourceBalance()}`)
+            }
 
             let rechargeCount = await rechargeAssets()
 
             if (rechargeCount > 0) {
                 console.log("Waiting on blockchain transaction confirmations")
-                await delay(TIME_BETWEEN_PROCESSES_MS)
+                await delay(TXN_WAIT_TIME_MS)
             }
 
             let didMint = await mintAssets()
             if (didMint) {
                 console.log("Waiting on blockchain transaction confirmations")
-                await delay(TIME_BETWEEN_PROCESSES_MS)
+                await delay(TXN_WAIT_TIME_MS)
             }
 
             //check for assets needing a recharge after mint
             rechargeCount = await rechargeAssets()
             if (rechargeCount > 0) {
                 console.log("Waiting on blockchain transaction confirmations")
-                await delay(TIME_BETWEEN_PROCESSES_MS)
+                await delay(TXN_WAIT_TIME_MS)
             }
 
             if (CONFIG_ENABLE_LAND_AUTO_CRAFT) {
