@@ -116,53 +116,57 @@ async function main() {
                     }
                 }
             }
-            console.log("10 minutes remaining before next cycle")
-            await delay(300000)
-            console.log("5 minutes remaining before next cycle")
-            await delay(300000)
         } catch (err) {
-            console.log(`Main Loop: Error -  + ${err}`)
+            console.log(`Main Loop: Error - ${err}`)
         }
+
+        console.log("10 minutes remaining before next cycle")
+        await delay(300000)
+        console.log("5 minutes remaining before next cycle")
+        await delay(300000)
     }
 }
 
 async function mintAssets() {
-    try {
-        let didAnyAssetMint = false
+    let didAnyAssetMint = false
 
+    try {
         let castles = await getCraftByTemplate(TEMPLATE_LAND_CASTLE)
         let barons = await getCraftByTemplate(TEMPLATE_ROYALBARON)
         let lumberjacks = await getCraftByTemplate(TEMPLATE_CRAFTER_LUMBERJACK)
         let carpenters = await getCraftByTemplate(TEMPLATE_CRAFTER_CARPENTER)
 
-        if (castles.elgibleToMint.length > 0) {
+        if (castles.eligibleToMint.length > 0) {
             console.log("Minting for Castles...")
-            if (await mint(castles.elgibleToMint, RECIPE_CASTLE, ACCOUNT_MSOURCEKINGS)) didAnyAssetMint = true
+            if (await mint(castles.eligibleToMint, RECIPE_CASTLE, ACCOUNT_MSOURCEKINGS)) didAnyAssetMint = true
         } else console.log("No castles to mint")
 
-        if (barons.elgibleToMint.length > 0) {
+        if (barons.eligibleToMint.length > 0) {
             console.log("Minting for Barons...")
-            if (await mint(barons.elgibleToMint, RECIPE_BARON, ACCOUNT_MSOURCEBARON)) didAnyAssetMint = true
+            if (await mint(barons.eligibleToMint, RECIPE_BARON, ACCOUNT_MSOURCEBARON)) didAnyAssetMint = true
         } else console.log("No barons to mint")
 
-        if (lumberjacks.elgibleToMint.length > 0) {
+        if (lumberjacks.eligibleToMint.length > 0) {
             console.log("Minting for Lumberjacks...")
-            if (await mint(lumberjacks.elgibleToMint, RECIPE_LUMBER, ACCOUNT_MSOURCEGOODS)) didAnyAssetMint = true
+            if (await mint(lumberjacks.eligibleToMint, RECIPE_LUMBER, ACCOUNT_MSOURCEGOODS)) didAnyAssetMint = true
         } else console.log("No lumberjacks to mint")
 
-        if (carpenters.elgibleToMint.length > 0) {
+        if (carpenters.eligibleToMint.length > 0) {
             console.log("Minting for Carpenters...")
-            if (await mint(carpenters.elgibleToMint, RECIPE_FINE_WOOD, ACCOUNT_MSOURCEGOODS)) didAnyAssetMint = true
+            if (await mint(carpenters.eligibleToMint, RECIPE_FINE_WOOD, ACCOUNT_MSOURCEGOODS)) didAnyAssetMint = true
         } else console.log("No carpenters to mint")
 
         return didAnyAssetMint
     } catch (err) {
-        console.log(`mintAssets: Error -  + ${err}`)
-        return false
+        console.log(`mintAssets: Error - ${err}`)
     }
+
+    return didAnyAssetMint
 }
 
 async function rechargeAssets() {
+    let rechargeCount = 0
+
     try {
         let castles = await getCraftByTemplate(TEMPLATE_LAND_CASTLE)
         let barons = await getCraftByTemplate(TEMPLATE_ROYALBARON)
@@ -170,25 +174,24 @@ async function rechargeAssets() {
         let carpenters = await getCraftByTemplate(TEMPLATE_CRAFTER_CARPENTER)
 
         /* 
-    if (barons.needsCharging.length > 0 && CONFIG_ENABLE_RECHARGE_ROYALBARON) {
-        console.log(`Recharging ${castles.needsCharging.length} barons...`)
-        await recharge(barons.needsCharging, royalSeals)
-    }
-    if (lumberjacks.needsCharging.length > 0 && CONFIG_ENABLE_RECHARGE_LUMBERJACK) {
-        console.log(`Recharging ${castles.needsCharging.length} lumberjacks...`)
-        await recharge(lumberjacks.needsCharging, royalSeals)
-    }
-    }*/
+        if (barons.needsCharging.length > 0 && CONFIG_ENABLE_RECHARGE_ROYALBARON) {
+            console.log(`Recharging ${castles.needsCharging.length} barons...`)
+            await recharge(barons.needsCharging, royalSeals)
+        }
+        if (lumberjacks.needsCharging.length > 0 && CONFIG_ENABLE_RECHARGE_LUMBERJACK) {
+            console.log(`Recharging ${castles.needsCharging.length} lumberjacks...`)
+            await recharge(lumberjacks.needsCharging, royalSeals)
+        }
+        }*/
 
         let royalSeals = await getRoyalSeals()
         let royalSealsUsed = 0
-        let rechargeCount = 0
 
         if (castles.needsCharging.length > 0 && CONFIG_ENABLE_RECHARGE_CASTLE) {
             console.log(`Recharging ${castles.needsCharging.length} castle`)
 
             for (let i = 0; i < castles.needsCharging.length; i++) {
-                //if we run out of minimum number of lumber or seals to recharge, then stop charging
+                //if we run out of seals to recharge, then stop charging
                 if (royalSeals.length - royalSealsUsed < RECHARGE_CASTLE_ROYAL_SEAL_FEE) {
                     console.log("Cannot continue charging castles: minimum resources not met")
                     break
@@ -241,7 +244,7 @@ async function rechargeAssets() {
             }
         }
     } catch (err) {
-        console.log(`rechargeAssets: Error -  + ${err}`)
+        console.log(`rechargeAssets: Error - ${err}`)
     }
 
     return rechargeCount
@@ -269,7 +272,7 @@ async function mint(eligibleToMint, recipeId, contract) {
 
         return false
     } catch (err) {
-        console.log(`mint: Error -  + ${err}`)
+        console.log(`mint: Error - ${err}`)
         return false
     }
 }
@@ -302,7 +305,7 @@ async function rechargeCastle(castleId, royalSeals) {
 
         return true
     } catch (err) {
-        console.log(`rechargeCastle: Error -  + ${err}`)
+        console.log(`rechargeCastle: Error - ${err}`)
         return false
     }
 }
@@ -351,7 +354,7 @@ async function rechargeCarpenter(carpenterId, royalSeals) {
 
         return true
     } catch (err) {
-        console.log(`rechargeCarpenter: Error -  + ${err}`)
+        console.log(`rechargeCarpenter: Error - ${err}`)
         return false
     }
 }
@@ -380,7 +383,7 @@ async function claimMSource() {
         console.log("Claimed MSOURCE successfully!")
         return true
     } catch (err) {
-        console.log(`claimMSource: Error -  + ${err}`)
+        console.log(`claimMSource: Error - ${err}`)
         return false
     }
 }
@@ -412,7 +415,7 @@ async function craft(assets, recipeId, contract) {
 
         return true
     } catch (err) {
-        console.log(`craft: Error -  + ${err}`)
+        console.log(`craft: Error - ${err}`)
         return false
     }
 }
@@ -459,7 +462,7 @@ async function claimLand(assets, recipeId) {
 
         return true
     } catch (err) {
-        console.log(`claimLand: Error -  + ${err}`)
+        console.log(`claimLand: Error - ${err}`)
         return false
     }
 }
@@ -491,20 +494,19 @@ async function payInstantFor2PackLand(royalSealAsset) {
         console.log("Land claimed successful!")
         return true
     } catch (err) {
-        console.log(`payInstantFor2PackLand: Error -  + ${err}`)
+        console.log(`payInstantFor2PackLand: Error - ${err}`)
         return false
     }
 }
 
 async function getCraftByTemplate(templateId) {
+    let eligibleToMint = []
+    let uneligibleToMint = []
+    let needsCharging = []
+    let page = 1
+    let keepLooking = true
+
     try {
-        let elgibleToMint = []
-        let uneligibleToMint = []
-        let needsCharging = []
-
-        let page = 1
-        let keepLooking = true
-
         while (keepLooking) {
             let nftItems = await fetch(
                 "https://wax.api.atomicassets.io/atomicassets/v1/assets?page=" +
@@ -527,7 +529,7 @@ async function getCraftByTemplate(templateId) {
 
                 if (currentCharges == 0) needsCharging.push(nftItems.data[j].asset_id)
                 else if (hoursPassed < MINT_TIMER) uneligibleToMint.push(nftItems.data[j].asset_id)
-                else elgibleToMint.push(nftItems.data[j].asset_id)
+                else eligibleToMint.push(nftItems.data[j].asset_id)
             }
 
             page++
@@ -536,23 +538,22 @@ async function getCraftByTemplate(templateId) {
             else await delay(20)
         }
     } catch (err) {
-        console.log(`getCraftByTemplate: Error -  + ${err}`)
+        console.log(`getCraftByTemplate: Error - ${err}`)
 
-        elgibleToMint = []
+        eligibleToMint = []
         uneligibleToMint = []
         needsCharging = []
     }
 
-    return { elgibleToMint, uneligibleToMint, needsCharging }
+    return { eligibleToMint, uneligibleToMint, needsCharging }
 }
 
 async function getRoyalSeals() {
+    let royalSeals = []
+    let page = 1
+    let keepLooking = true
+
     try {
-        let royalSeals = []
-
-        let page = 1
-        let keepLooking = true
-
         while (keepLooking) {
             let nftItems = await fetch(
                 "https://wax.api.atomicassets.io/atomicassets/v1/assets?page=" +
@@ -580,7 +581,7 @@ async function getRoyalSeals() {
 
         return royalSeals
     } catch (err) {
-        console.log(`getRoyalSeals: Error -  + ${err}`)
+        console.log(`getRoyalSeals: Error - ${err}`)
         return []
     }
 }
@@ -589,7 +590,7 @@ async function getMSourceBalance() {
     try {
         return await rpc.get_currency_balance(ACCOUNT_MSOURCETOKEN, CONFIG_WAX_ADDRESS, TOKEN_MSOURCE)
     } catch (err) {
-        console.log(`getMSourceBalance: Error -  + ${err}`)
+        console.log(`getMSourceBalance: Error - ${err}`)
         return 0
     }
 }
@@ -597,7 +598,7 @@ async function getLumberBalance() {
     try {
         return await rpc.get_currency_balance(ACCOUNT_MSOURCETOKEN, CONFIG_WAX_ADDRESS, TOKEN_LUMBER)
     } catch (err) {
-        console.log(`getLumberBalance: Error -  + ${err}`)
+        console.log(`getLumberBalance: Error - ${err}`)
         return 0
     }
 }
@@ -605,7 +606,7 @@ async function getFineWoodsBalance() {
     try {
         return await rpc.get_currency_balance(ACCOUNT_MSOURCETOKEN, CONFIG_WAX_ADDRESS, TOKEN_FINEWOOD)
     } catch (err) {
-        console.log(`getFineWoodsBalance: Error -  + ${err}`)
+        console.log(`getFineWoodsBalance: Error - ${err}`)
         return 0
     }
 }
