@@ -661,6 +661,5 @@ async function stakeCPU(amount) {
     }
 }
 
-console.log(getWaxBalance())
 //run program
-//main()
+main()
