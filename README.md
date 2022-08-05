@@ -18,8 +18,8 @@ This script is intended to be run via command line and not through a browser
 
 ## Objectives
 
-- Recharge Barons, Castles, Lumberjacks, Carpenters
-- Mint for Barons, Castles, Lumberjacks, Carpenters
+- Recharge Barons, Castles, Lumberjacks, Carpenters, Miners
+- Mint for Barons, Castles, Lumberjacks, Carpenters, Miners
 - Auto claim land from fine wood
 - Auto claim MSOURCE
 - Runs in indefinite loop until you quit the program

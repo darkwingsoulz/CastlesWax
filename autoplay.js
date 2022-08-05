@@ -32,8 +32,11 @@ const COLLECTION_NAME = "castlesnftgo"
 //templates
 const TEMPLATE_LAND_CASTLE = 436421
 const TEMPLATE_ROYALBARON = 391837
+
 const TEMPLATE_CRAFTER_LUMBERJACK = 456608
 const TEMPLATE_CRAFTER_CARPENTER = 481431
+const TEMPLATE_CRAFTER_MINER = 552311
+
 const TEMPLATE_MAT_ROYAL_SEAL = 411437
 const TEMPLATE_PACK_2LANDS = 527506
 
@@ -41,6 +44,7 @@ const RECIPE_LUMBER = 1
 const RECIPE_FINE_WOOD = 2
 const RECIPE_BARON = 1
 const RECIPE_CASTLE = 1
+const RECIPE_METAL = 3
 
 const MINT_TIMER = 24
 
@@ -135,6 +139,7 @@ async function mintAssets() {
         let barons = await getCraftByTemplate(TEMPLATE_ROYALBARON)
         let lumberjacks = await getCraftByTemplate(TEMPLATE_CRAFTER_LUMBERJACK)
         let carpenters = await getCraftByTemplate(TEMPLATE_CRAFTER_CARPENTER)
+        let miners = await getCraftByTemplate(TEMPLATE_CRAFTER_MINER)
 
         if (castles.eligibleToMint.length > 0) {
             console.log("Minting for Castles...")
@@ -156,6 +161,11 @@ async function mintAssets() {
             if (await mint(carpenters.eligibleToMint, RECIPE_FINE_WOOD, ACCOUNT_MSOURCEGOODS)) didAnyAssetMint = true
         } else console.log("No carpenters to mint")
 
+        if (miners.eligibleToMint.length > 0) {
+            console.log("Minting for Miners...")
+            if (await mint(miners.eligibleToMint, RECIPE_METAL, ACCOUNT_MSOURCEGOODS)) didAnyAssetMint = true
+        } else console.log("No carpenters to mint")
+
         return didAnyAssetMint
     } catch (err) {
         console.log(`mintAssets: Error - ${err}`)
@@ -172,6 +182,7 @@ async function rechargeAssets() {
         let barons = await getCraftByTemplate(TEMPLATE_ROYALBARON)
         let lumberjacks = await getCraftByTemplate(TEMPLATE_CRAFTER_LUMBERJACK)
         let carpenters = await getCraftByTemplate(TEMPLATE_CRAFTER_CARPENTER)
+        let miners = await getCraftByTemplate(TEMPLATE_CRAFTER_MINER)
 
         /* 
         if (barons.needsCharging.length > 0 && CONFIG_ENABLE_RECHARGE_ROYALBARON) {
@@ -611,5 +622,45 @@ async function getFineWoodsBalance() {
     }
 }
 
+async function getWaxBalance() {
+    try {
+        return await rpc.get_currency_balance("eos", CONFIG_WAX_ADDRESS, "WAX")
+    } catch (err) {
+        console.log(`getWaxBalance: Error - ${err}`)
+        return 0
+    }
+}
+
+async function stakeCPU(amount) {
+    try {
+        let stakeCPUAction = {
+            actions: [
+                {
+                    account: "eosio",
+                    name: "delegatebw",
+                    authorization: [
+                        {
+                            actor: CONFIG_WAX_ADDRESS,
+                            permission: "active",
+                        },
+                    ],
+                    data: {
+                        from: CONFIG_WAX_ADDRESS,
+                        receiver: CONFIG_WAX_ADDRESS,
+                        stake_net_quantity: "0.00000000 WAX",
+                        stake_cpu_quantity: Number(amount).toFixed(8) + " WAX",
+                        transfer: false,
+                    },
+                },
+            ],
+        }
+
+        await api.transact(stakeCPUAction, tapos)
+    } catch (err) {
+        console.log(`stakeCPU: Error - ${err}`)
+    }
+}
+
+console.log(getWaxBalance())
 //run program
-main()
+//main()
