@@ -126,8 +126,6 @@ async function main() {
 
         console.log("10 minutes remaining before next cycle")
         await delay(300000)
-        console.log("5 minutes remaining before next cycle")
-        await delay(300000)
     }
 }
 
