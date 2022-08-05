@@ -534,12 +534,21 @@ async function getCraftByTemplate(templateId) {
             if (nftItems.data.length == 0) break
 
             for (let j = 0; j < nftItems.data.length; j++) {
-                let currentCharges = Number(nftItems.data[j].data["Current Charges"])
-                let claimRef = nftItems.data[j].data["Claim Reference Number"].padEnd(13, "0")
-                let hoursPassed = parseInt(new Date() - new Date(Number(claimRef))) / 1000 / 60 / 60
+                let hasMintedBefore = false
 
-                if (currentCharges == 0) needsCharging.push(nftItems.data[j].asset_id)
-                else if (hoursPassed < MINT_TIMER) uneligibleToMint.push(nftItems.data[j].asset_id)
+                if (nftItems.data[j].data["Current Charges"] != undefined) hasMintedBefore = true
+
+                let claimRef, hoursPassed
+
+                let currentCharges = hasMintedBefore ? Number(nftItems.data[j].data["Current Charges"]) : 1
+
+                if (hasMintedBefore) {
+                    claimRef = nftItems.data[j].data["Claim Reference Number"].padEnd(13, "0")
+                    hoursPassed = parseInt(new Date() - new Date(Number(claimRef))) / 1000 / 60 / 60
+                }
+
+                if (hasMintedBefore && currentCharges == 0) needsCharging.push(nftItems.data[j].asset_id)
+                else if (hasMintedBefore && hoursPassed < MINT_TIMER) uneligibleToMint.push(nftItems.data[j].asset_id)
                 else eligibleToMint.push(nftItems.data[j].asset_id)
             }
 
