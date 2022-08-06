@@ -308,17 +308,6 @@ async function rechargeBaron(baronId, royalSeals) {
         let rechargeAction = {
             actions: [
                 {
-                    account: "greymassnoop",
-                    name: "noop",
-                    authorization: [
-                        {
-                            actor: "greymassfuel",
-                            permission: "cosign",
-                        },
-                    ],
-                    data: {},
-                },
-                {
                     account: "atomicassets",
                     name: "transfer",
                     authorization: [
