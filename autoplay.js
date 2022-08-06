@@ -12,6 +12,7 @@ const CONFIG_ENABLE_RECHARGE_ROYALBARON = process.env.CONFIG_ENABLE_RECHARGE_ROY
 const CONFIG_ENABLE_LAND_AUTO_CRAFT = process.env.CONFIG_ENABLE_LAND_AUTO_CRAFT.toLowerCase() == "true"
 const CONFIG_WAX_PRIVATE_KEY = process.env.WAX_PRIVATE_KEY
 const CONFIG_WAX_ADDRESS = process.env.WAX_ADDRESS.toLowerCase()
+const CONFIG_LOOP_TIME_IN_MINUTES = process.env.CONFIG_LOOP_TIME_IN_MINUTES || 10
 
 const rpc = new JsonRpc("https://wax.greymass.com", { fetch })
 const signatureProvider = new JsSignatureProvider([CONFIG_WAX_PRIVATE_KEY])
@@ -125,8 +126,8 @@ async function main() {
             console.log(`Main Loop: Error - ${err}`)
         }
 
-        console.log("10 minutes remaining before next cycle")
-        await delay(300000)
+        console.log(`Waiting ${CONFIG_LOOP_TIME_IN_MINUTES} hour(s) before next cycle.`)
+        await delay(Number(CONFIG_LOOP_TIME_IN_HOURS) * 60 * 60 * 1000)
     }
 }
 
