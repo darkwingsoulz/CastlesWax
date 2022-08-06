@@ -61,9 +61,10 @@ const ACCOUNT_MSOURCEBARON = "msourcebaron"
 
 const MINT_MAX = 10
 
+const RECHARGE_BARON_ROYAL_SEAL_FEE = 1
+const RECHARGE_CASTLE_ROYAL_SEAL_FEE = 1
 const RECHARGE_CARPENTER_LUMBER_FEE = 6
 const RECHARGE_CARPENTER_ROYAL_SEAL_FEE = 1
-const RECHARGE_CASTLE_ROYAL_SEAL_FEE = 1
 
 //needed to give enough time for blockchain transactions to be confirmed
 const TXN_WAIT_TIME_MS = 20000
@@ -182,22 +183,38 @@ async function rechargeAssets() {
         let carpenters = await getCraftByTemplate(TEMPLATE_CRAFTER_CARPENTER)
         let miners = await getCraftByTemplate(TEMPLATE_CRAFTER_MINER)
 
-        /* 
-        if (barons.needsCharging.length > 0 && CONFIG_ENABLE_RECHARGE_ROYALBARON) {
-            console.log(`Recharging ${castles.needsCharging.length} barons...`)
-            await recharge(barons.needsCharging, royalSeals)
-        }
-        if (lumberjacks.needsCharging.length > 0 && CONFIG_ENABLE_RECHARGE_LUMBERJACK) {
-            console.log(`Recharging ${castles.needsCharging.length} lumberjacks...`)
-            await recharge(lumberjacks.needsCharging, royalSeals)
-        }
-        }*/
-
         let royalSeals = await getRoyalSeals()
         let royalSealsUsed = 0
 
+        if (barons.needsCharging.length > 0 && CONFIG_ENABLE_RECHARGE_ROYALBARON) {
+            console.log(`Recharging ${barons.needsCharging.length} barons`)
+
+            for (let i = 0; i < barons.needsCharging.length; i++) {
+                //if we run out of seals to recharge, then stop charging
+                if (royalSeals.length - royalSealsUsed < RECHARGE_BARON_ROYAL_SEAL_FEE) {
+                    console.log("Cannot continue charging barons: minimum resources not met")
+                    break
+                }
+
+                let royalSealsForRecharge = []
+                let tmpRoyalSealsUsed = royalSealsUsed
+
+                for (let j = 0; j < RECHARGE_BARON_ROYAL_SEAL_FEE; j++) {
+                    royalSealsForRecharge[j] = royalSeals[tmpRoyalSealsUsed]
+                    tmpRoyalSealsUsed++
+                }
+
+                if (await rechargeBaron(barons.needsCharging[i], royalSealsForRecharge)) {
+                    royalSealsUsed += tmpRoyalSealsUsed
+                    rechargeCount++
+                } else {
+                    break
+                }
+            }
+        }
+
         if (castles.needsCharging.length > 0 && CONFIG_ENABLE_RECHARGE_CASTLE) {
-            console.log(`Recharging ${castles.needsCharging.length} castle`)
+            console.log(`Recharging ${castles.needsCharging.length} castles`)
 
             for (let i = 0; i < castles.needsCharging.length; i++) {
                 //if we run out of seals to recharge, then stop charging
@@ -282,6 +299,50 @@ async function mint(eligibleToMint, recipeId, contract) {
         return false
     } catch (err) {
         console.log(`mint: Error - ${err}`)
+        return false
+    }
+}
+
+async function rechargeBaron(baronId, royalSeals) {
+    try {
+        let rechargeAction = {
+            actions: [
+                {
+                    account: "greymassnoop",
+                    name: "noop",
+                    authorization: [
+                        {
+                            actor: "greymassfuel",
+                            permission: "cosign",
+                        },
+                    ],
+                    data: {},
+                },
+                {
+                    account: "atomicassets",
+                    name: "transfer",
+                    authorization: [
+                        {
+                            actor: CONFIG_WAX_ADDRESS,
+                            permission: "active",
+                        },
+                    ],
+                    data: {
+                        from: CONFIG_WAX_ADDRESS,
+                        to: ACCOUNT_MSOURCEBARON,
+                        asset_ids: royalSeals,
+                        memo: `fix:${baronId}`,
+                    },
+                },
+            ],
+        }
+
+        await api.transact(rechargeAction, tapos)
+        console.log("Baron recharge successful!")
+
+        return true
+    } catch (err) {
+        console.log(`rechargeBaron: Error - ${err}`)
         return false
     }
 }
