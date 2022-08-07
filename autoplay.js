@@ -53,6 +53,7 @@ const LAND_CLAIM_FINE_WOOD_FEE = 16
 const TOKEN_FINEWOOD = "CFWTEMP"
 const TOKEN_LUMBER = "CLUMBER"
 const TOKEN_MSOURCE = "MSOURCE"
+const TOKEN_METAL = "CMFTEMP"
 const ACCOUNT_MSOURCETOKEN = "msourcetoken"
 const ACCOUNT_MSOURCESTAKE = "msourcestake"
 const ACCOUNT_MSOURCEKINGS = "msourcekings"
@@ -62,31 +63,27 @@ const ACCOUNT_MSOURCEBARON = "msourcebaron"
 
 const MINT_MAX = 10
 
+//recharge requirements
 const RECHARGE_BARON_ROYAL_SEAL_FEE = 1
 const RECHARGE_CASTLE_ROYAL_SEAL_FEE = 1
 const RECHARGE_CARPENTER_LUMBER_FEE = 6
 const RECHARGE_CARPENTER_ROYAL_SEAL_FEE = 1
+const RECHARGE_LUMBERJACK_ROYAL_SEAL_FEE = 4
+const RECHARGE_LUMBERJACK_MSOURCE_FEE = 400000
 
 //needed to give enough time for blockchain transactions to be confirmed
 const TXN_WAIT_TIME_MS = 20000
 
 async function main() {
-    /*
-        constantly runs the program
-    */
+    // constantly runs the program on a configurable timed loop
     while (true) {
         try {
-            console.log(`MSource Balance (Before Claim): ${await getMSourceBalance()}`)
-
             //claiming MSOURCE
             console.log("Claiming MSOURCE...")
             if (await claimMSource()) {
                 //wait after claiming so balance can update
                 console.log("Waiting on blockchain transaction confirmations")
                 await delay(TXN_WAIT_TIME_MS)
-
-                //get current aether balance
-                console.log(`MSource Balance (After Claim): ${await getMSourceBalance()}`)
             }
 
             let rechargeCount = await rechargeAssets()
@@ -233,6 +230,36 @@ async function rechargeAssets() {
                 }
 
                 if (await rechargeCastle(castles.needsCharging[i], royalSealsForRecharge)) {
+                    royalSealsUsed += tmpRoyalSealsUsed
+                    rechargeCount++
+                } else {
+                    break
+                }
+            }
+        }
+
+        if (lumberjacks.needsCharging.length > 0 && CONFIG_ENABLE_RECHARGE_LUMBERJACK) {
+            let msourceBalance = await getMSourceBalance()
+
+            console.log(`Recharging ${lumberjacks.needsCharging.length} lumberjacks`)
+
+            for (let i = 0; i < lumberjacks.needsCharging.length; i++) {
+                //if we run out of minimum number of msource or seals to recharge, then stop charging
+                if (msourceBalance < RECHARGE_LUMBERJACK_MSOURCE_FEE || royalSeals.length - royalSealsUsed < RECHARGE_LUMBERJACK_ROYAL_SEAL_FEE) {
+                    console.log("Cannot continue charging lumberjacks: minimum resources not met")
+                    break
+                }
+
+                let royalSealsForRecharge = []
+                let tmpRoyalSealsUsed = royalSealsUsed
+
+                for (let j = 0; j < RECHARGE_LUMBERJACK_ROYAL_SEAL_FEE; j++) {
+                    royalSealsForRecharge[j] = royalSeals[tmpRoyalSealsUsed]
+                    tmpRoyalSealsUsed++
+                }
+
+                if (await rechargeLumberjack(lumberjacks.needsCharging[i], royalSealsForRecharge)) {
+                    msourceBalance -= RECHARGE_LUMBERJACK_MSOURCE_FEE
                     royalSealsUsed += tmpRoyalSealsUsed
                     rechargeCount++
                 } else {
@@ -415,6 +442,55 @@ async function rechargeCarpenter(carpenterId, royalSeals) {
         return true
     } catch (err) {
         console.log(`rechargeCarpenter: Error - ${err}`)
+        return false
+    }
+}
+
+async function rechargeLumberjack(lumberjackId, royalSeals) {
+    try {
+        let rechargeAction = {
+            actions: [
+                {
+                    account: ACCOUNT_MSOURCETOKEN,
+                    name: "transfer",
+                    authorization: [
+                        {
+                            actor: CONFIG_WAX_ADDRESS,
+                            permission: "active",
+                        },
+                    ],
+                    data: {
+                        from: CONFIG_WAX_ADDRESS,
+                        to: ACCOUNT_MSOURCEGOODS,
+                        quantity: `${RECHARGE_LUMBERJACK_MSOURCE_FEE} ${TOKEN_MSOURCE}`,
+                        memo: "deposit",
+                    },
+                },
+                {
+                    account: "atomicassets",
+                    name: "transfer",
+                    authorization: [
+                        {
+                            actor: CONFIG_WAX_ADDRESS,
+                            permission: "active",
+                        },
+                    ],
+                    data: {
+                        from: CONFIG_WAX_ADDRESS,
+                        to: ACCOUNT_MSOURCEGOODS,
+                        asset_ids: royalSeals,
+                        memo: `fix:${lumberjackId}`,
+                    },
+                },
+            ],
+        }
+
+        await api.transact(rechargeAction, tapos)
+        console.log("Lumberjack recharge successful!")
+
+        return true
+    } catch (err) {
+        console.log(`rechargeLumberjack: Error - ${err}`)
         return false
     }
 }
@@ -657,7 +733,8 @@ async function getRoyalSeals() {
 
 async function getMSourceBalance() {
     try {
-        return await rpc.get_currency_balance(ACCOUNT_MSOURCETOKEN, CONFIG_WAX_ADDRESS, TOKEN_MSOURCE)
+        let bal = await rpc.get_currency_balance(ACCOUNT_MSOURCETOKEN, CONFIG_WAX_ADDRESS, TOKEN_MSOURCE)
+        return Number(bal[0].split(" ")[0])
     } catch (err) {
         console.log(`getMSourceBalance: Error - ${err}`)
         return 0
@@ -665,7 +742,8 @@ async function getMSourceBalance() {
 }
 async function getLumberBalance() {
     try {
-        return await rpc.get_currency_balance(ACCOUNT_MSOURCETOKEN, CONFIG_WAX_ADDRESS, TOKEN_LUMBER)
+        let bal = await rpc.get_currency_balance(ACCOUNT_MSOURCETOKEN, CONFIG_WAX_ADDRESS, TOKEN_LUMBER)
+        return Number(bal[0].split(" ")[0])
     } catch (err) {
         console.log(`getLumberBalance: Error - ${err}`)
         return 0
@@ -673,16 +751,28 @@ async function getLumberBalance() {
 }
 async function getFineWoodsBalance() {
     try {
-        return await rpc.get_currency_balance(ACCOUNT_MSOURCETOKEN, CONFIG_WAX_ADDRESS, TOKEN_FINEWOOD)
+        let bal = await rpc.get_currency_balance(ACCOUNT_MSOURCETOKEN, CONFIG_WAX_ADDRESS, TOKEN_FINEWOOD)
+        return Number(bal[0].split(" ")[0])
     } catch (err) {
         console.log(`getFineWoodsBalance: Error - ${err}`)
         return 0
     }
 }
 
+async function getMetalBalance() {
+    try {
+        let bal = await rpc.get_currency_balance(ACCOUNT_MSOURCETOKEN, CONFIG_WAX_ADDRESS, TOKEN_METAL)
+        return Number(bal[0].split(" ")[0])
+    } catch (err) {
+        console.log(`getMetalBalance: Error - ${err}`)
+        return 0
+    }
+}
+
 async function getWaxBalance() {
     try {
-        return await rpc.get_currency_balance("eos", CONFIG_WAX_ADDRESS, "WAX")
+        let bal = await rpc.get_currency_balance("eosio.token", CONFIG_WAX_ADDRESS, "WAX")
+        return Number(bal[0].split(" ")[0])
     } catch (err) {
         console.log(`getWaxBalance: Error - ${err}`)
         return 0
