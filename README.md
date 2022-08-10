@@ -1,3 +1,8 @@
+## Donations
+If you find this script helpful, donations are appreciated
+
+WAX Address: https://wax.bloks.io/account/darkwingsoul
+
 ## Castles on Wax
 Scripts to automate gameplay for Castles on wax blockchain
 
