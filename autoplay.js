@@ -47,9 +47,8 @@ const RECIPE_BARON = 1
 const RECIPE_CASTLE = 1
 const RECIPE_METAL = 3
 
-//we don't want to do exactly 24 hours because it could miss those about to expire
-//adding the extra hour will ensure this doesn't happen
-//this value is also has an override in the env file
+//global timer constraint to determine eligible mints
+//we add an hour to accommodate edge cases of time sync
 const MINT_TIMER = 25
 
 const LAND_CLAIM_FINE_WOOD_FEE = 16
