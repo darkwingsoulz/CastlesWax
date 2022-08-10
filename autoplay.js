@@ -12,7 +12,7 @@ const CONFIG_ENABLE_RECHARGE_ROYALBARON = process.env.CONFIG_ENABLE_RECHARGE_ROY
 const CONFIG_ENABLE_LAND_AUTO_CRAFT = process.env.CONFIG_ENABLE_LAND_AUTO_CRAFT.toLowerCase() == "true"
 const CONFIG_WAX_PRIVATE_KEY = process.env.WAX_PRIVATE_KEY
 const CONFIG_WAX_ADDRESS = process.env.WAX_ADDRESS.toLowerCase()
-const CONFIG_LOOP_TIME_IN_HOURS = process.env.CONFIG_LOOP_TIME_IN_HOURS || 24
+const CONFIG_LOOP_TIME_IN_HOURS = process.env.CONFIG_LOOP_TIME_IN_HOURS || 6
 
 const rpc = new JsonRpc("https://wax.greymass.com", { fetch })
 const signatureProvider = new JsSignatureProvider([CONFIG_WAX_PRIVATE_KEY])

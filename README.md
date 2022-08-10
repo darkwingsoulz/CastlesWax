@@ -45,7 +45,11 @@ CONFIG_ENABLE_RECHARGE_ROYALBARON = true
 CONFIG_ENABLE_RECHARGE_LUMBERJACK = false
 CONFIG_ENABLE_RECHARGE_CARPENTER = false
 CONFIG_ENABLE_LAND_AUTO_CRAFT = false
-CONFIG_LOOP_TIME_IN_HOURS = 25
+
+#Timers for assets are on 24 hour cycles
+#but the loop should be run at least a couple times per day for assets
+#that are staggered over different times
+CONFIG_LOOP_TIME_IN_HOURS = 6 
 
 ```
 
