@@ -165,7 +165,7 @@ async function mintAssets() {
         if (miners.eligibleToMint.length > 0) {
             console.log("Minting for Miners...")
             if (await mint(miners.eligibleToMint, RECIPE_METAL, ACCOUNT_MSOURCEGOODS)) didAnyAssetMint = true
-        } else console.log("No carpenters to mint")
+        } else console.log("No miners to mint")
 
         return didAnyAssetMint
     } catch (err) {
