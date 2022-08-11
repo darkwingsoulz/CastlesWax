@@ -72,6 +72,8 @@ const RECHARGE_CARPENTER_LUMBER_FEE = 6
 const RECHARGE_CARPENTER_ROYAL_SEAL_FEE = 1
 const RECHARGE_LUMBERJACK_ROYAL_SEAL_FEE = 4
 const RECHARGE_LUMBERJACK_MSOURCE_FEE = 400000
+const RECHARGE_MINER_LUMBER_FEE = 6
+const RECHARGE_MINER_ROYAL_SEAL_FEE = 1
 
 //needed to give enough time for blockchain transactions to be confirmed
 const TXN_WAIT_TIME_MS = 20000
@@ -183,6 +185,7 @@ async function rechargeAssets() {
         let carpenters = await getCraftByTemplate(TEMPLATE_CRAFTER_CARPENTER)
         let miners = await getCraftByTemplate(TEMPLATE_CRAFTER_MINER)
 
+        let lumberBalance = await Number(getLumberBalance())
         let royalSeals = await getRoyalSeals()
         let royalSealsUsed = 0
 
@@ -271,8 +274,6 @@ async function rechargeAssets() {
         }
 
         if (carpenters.needsCharging.length > 0 && CONFIG_ENABLE_RECHARGE_CARPENTER) {
-            let lumberBalance = await Number(getLumberBalance())
-
             console.log(`Recharging ${carpenters.needsCharging.length} carpenters`)
 
             for (let i = 0; i < carpenters.needsCharging.length; i++) {
@@ -292,6 +293,34 @@ async function rechargeAssets() {
 
                 if (await rechargeCarpenter(carpenters.needsCharging[i], royalSealsForRecharge)) {
                     lumberBalance -= RECHARGE_CARPENTER_LUMBER_FEE
+                    royalSealsUsed += tmpRoyalSealsUsed
+                    rechargeCount++
+                } else {
+                    break
+                }
+            }
+        }
+
+        if (miners.needsCharging.length > 0 && CONFIG_ENABLE_RECHARGE_MINER) {
+            console.log(`Recharging ${miners.needsCharging.length} miners`)
+
+            for (let i = 0; i < miners.needsCharging.length; i++) {
+                //if we run out of minimum number of lumber or seals to recharge, then stop charging
+                if (lumberBalance < RECHARGE_MINER_LUMBER_FEE || royalSeals.length - royalSealsUsed < RECHARGE_MINER_ROYAL_SEAL_FEE) {
+                    console.log("Cannot continue charging miners: minimum resources not met")
+                    break
+                }
+
+                let royalSealsForRecharge = []
+                let tmpRoyalSealsUsed = royalSealsUsed
+
+                for (let j = 0; j < RECHARGE_MINER_ROYAL_SEAL_FEE; j++) {
+                    royalSealsForRecharge[j] = royalSeals[tmpRoyalSealsUsed]
+                    tmpRoyalSealsUsed++
+                }
+
+                if (await rechargeMiner(miners.needsCharging[i], royalSealsForRecharge)) {
+                    lumberBalance -= RECHARGE_MINER_LUMBER_FEE
                     royalSealsUsed += tmpRoyalSealsUsed
                     rechargeCount++
                 } else {
@@ -444,6 +473,55 @@ async function rechargeCarpenter(carpenterId, royalSeals) {
         return true
     } catch (err) {
         console.log(`rechargeCarpenter: Error - ${err}`)
+        return false
+    }
+}
+
+async function rechargeMiner(minerId, royalSeals) {
+    try {
+        let rechargeAction = {
+            actions: [
+                {
+                    account: ACCOUNT_MSOURCETOKEN,
+                    name: "transfer",
+                    authorization: [
+                        {
+                            actor: CONFIG_WAX_ADDRESS,
+                            permission: "active",
+                        },
+                    ],
+                    data: {
+                        from: CONFIG_WAX_ADDRESS,
+                        to: ACCOUNT_MSOURCEGOODS,
+                        quantity: `${RECHARGE_MINER_LUMBER_FEE} ${TOKEN_LUMBER}`,
+                        memo: "deposit",
+                    },
+                },
+                {
+                    account: "atomicassets",
+                    name: "transfer",
+                    authorization: [
+                        {
+                            actor: CONFIG_WAX_ADDRESS,
+                            permission: "active",
+                        },
+                    ],
+                    data: {
+                        from: CONFIG_WAX_ADDRESS,
+                        to: ACCOUNT_MSOURCEGOODS,
+                        asset_ids: royalSeals,
+                        memo: `fix:${minerId}`,
+                    },
+                },
+            ],
+        }
+
+        await api.transact(rechargeAction, tapos)
+        console.log("Miner recharge successful!")
+
+        return true
+    } catch (err) {
+        console.log(`rechargeMiner: Error - ${err}`)
         return false
     }
 }
