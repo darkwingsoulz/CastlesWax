@@ -648,7 +648,7 @@ async function craft(assets, recipeId, contract) {
     }
 }
 
-async function claimLand(assets, recipeId) {
+async function claimLand() {
     try {
         let claimLandAction = {
             actions: [
