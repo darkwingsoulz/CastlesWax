@@ -80,16 +80,23 @@ const RECHARGE_MINER_ROYAL_SEAL_FEE = 1
 const TXN_WAIT_TIME_MS = 20000
 
 async function main() {
+    let msourceClaimCheck = 0
+
     // constantly runs the program on a configurable timed loop
     while (true) {
         try {
-            //claiming MSOURCE
-            console.log("Claiming MSOURCE...")
-            if (await claimMSource()) {
-                //wait after claiming so balance can update
-                console.log("Waiting on blockchain transaction confirmations")
-                await delay(TXN_WAIT_TIME_MS)
+            if (msourceClaimCheck == 0) {
+                //claiming MSOURCE
+                console.log("Claiming MSOURCE...")
+                if (await claimMSource()) {
+                    //wait after claiming so balance can update
+                    console.log("Waiting on blockchain transaction confirmations")
+                    await delay(TXN_WAIT_TIME_MS)
+                }
             }
+            msourceClaimCheck++
+
+            if (msourceClaimCheck > 10) msourceClaimCheck = 0
 
             let rechargeCount = await rechargeAssets()
 
@@ -607,24 +614,28 @@ async function claimMSource() {
 
 async function craft(assets, recipeId, contract) {
     try {
-        let craftAction = {
-            actions: [
-                {
-                    account: contract,
-                    name: "craft",
-                    authorization: [
-                        {
-                            actor: CONFIG_WAX_ADDRESS,
-                            permission: "active",
-                        },
-                    ],
-                    data: {
-                        owner: CONFIG_WAX_ADDRESS,
-                        asset_ids: assets,
-                        recipe_id: recipeId,
+        let actionsArray = []
+
+        for (let i = 0; i < assets.length; i++) {
+            actionsArray.push({
+                account: contract,
+                name: "craft",
+                authorization: [
+                    {
+                        actor: CONFIG_WAX_ADDRESS,
+                        permission: "active",
                     },
+                ],
+                data: {
+                    owner: CONFIG_WAX_ADDRESS,
+                    asset_ids: assets[i],
+                    recipe_id: recipeId,
                 },
-            ],
+            })
+        }
+
+        let craftAction = {
+            actions: actionsArray,
         }
 
         await api.transact(craftAction, tapos)
