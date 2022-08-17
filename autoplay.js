@@ -628,7 +628,7 @@ async function craft(assets, recipeId, contract) {
                 ],
                 data: {
                     owner: CONFIG_WAX_ADDRESS,
-                    asset_ids: assets[i],
+                    asset_ids: [assets[i]],
                     recipe_id: recipeId,
                 },
             })
