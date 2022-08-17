@@ -128,7 +128,7 @@ async function main() {
             console.log(`Main Loop: Error - ${err}`)
         }
 
-        console.log(`Waiting ${CONFIG_LOOP_TIME_IN_MINUTES} hour(s) before next cycle.`)
+        console.log(`Waiting ${CONFIG_LOOP_TIME_IN_MINUTES} minute(s) before next cycle.`)
         await delay(Number(CONFIG_LOOP_TIME_IN_MINUTES) * 60 * 1000)
     }
 }
