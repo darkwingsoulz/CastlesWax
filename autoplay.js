@@ -13,7 +13,7 @@ const CONFIG_ENABLE_RECHARGE_MINER = process.env.CONFIG_ENABLE_RECHARGE_MINER.to
 const CONFIG_ENABLE_LAND_AUTO_CRAFT = process.env.CONFIG_ENABLE_LAND_AUTO_CRAFT.toLowerCase() == "true"
 const CONFIG_WAX_PRIVATE_KEY = process.env.WAX_PRIVATE_KEY
 const CONFIG_WAX_ADDRESS = process.env.WAX_ADDRESS.toLowerCase()
-const CONFIG_LOOP_TIME_IN_HOURS = process.env.CONFIG_LOOP_TIME_IN_HOURS || 6
+const CONFIG_LOOP_TIME_IN_MINUTES = process.env.CONFIG_LOOP_TIME_IN_MINUTES || 6
 
 const rpc = new JsonRpc("https://wax.greymass.com", { fetch })
 const signatureProvider = new JsSignatureProvider([CONFIG_WAX_PRIVATE_KEY])
@@ -128,8 +128,8 @@ async function main() {
             console.log(`Main Loop: Error - ${err}`)
         }
 
-        console.log(`Waiting ${CONFIG_LOOP_TIME_IN_HOURS} hour(s) before next cycle.`)
-        await delay(Number(CONFIG_LOOP_TIME_IN_HOURS) * 60 * 60 * 1000)
+        console.log(`Waiting ${CONFIG_LOOP_TIME_IN_MINUTES} hour(s) before next cycle.`)
+        await delay(Number(CONFIG_LOOP_TIME_IN_MINUTES) * 60 * 1000)
     }
 }
 
@@ -824,7 +824,8 @@ async function getMSourceBalance() {
 async function getLumberBalance() {
     try {
         let bal = await rpc.get_currency_balance(ACCOUNT_MSOURCETOKEN, CONFIG_WAX_ADDRESS, TOKEN_LUMBER)
-        return Number(bal[0].split(" ")[0])
+        if (bal.length > 0) return Number(bal[0].split(" ")[0])
+        return 0
     } catch (err) {
         console.log(`getLumberBalance: Error - ${err}`)
         return 0
@@ -833,7 +834,8 @@ async function getLumberBalance() {
 async function getFineWoodsBalance() {
     try {
         let bal = await rpc.get_currency_balance(ACCOUNT_MSOURCETOKEN, CONFIG_WAX_ADDRESS, TOKEN_FINEWOOD)
-        return Number(bal[0].split(" ")[0])
+        if (bal.length > 0) return Number(bal[0].split(" ")[0])
+        return 0
     } catch (err) {
         console.log(`getFineWoodsBalance: Error - ${err}`)
         return 0
@@ -843,7 +845,8 @@ async function getFineWoodsBalance() {
 async function getMetalBalance() {
     try {
         let bal = await rpc.get_currency_balance(ACCOUNT_MSOURCETOKEN, CONFIG_WAX_ADDRESS, TOKEN_METAL)
-        return Number(bal[0].split(" ")[0])
+        if (bal.length > 0) return Number(bal[0].split(" ")[0])
+        return 0
     } catch (err) {
         console.log(`getMetalBalance: Error - ${err}`)
         return 0
@@ -853,7 +856,8 @@ async function getMetalBalance() {
 async function getWaxBalance() {
     try {
         let bal = await rpc.get_currency_balance("eosio.token", CONFIG_WAX_ADDRESS, "WAX")
-        return Number(bal[0].split(" ")[0])
+        if (bal.length > 0) return Number(bal[0].split(" ")[0])
+        return 0
     } catch (err) {
         console.log(`getWaxBalance: Error - ${err}`)
         return 0
