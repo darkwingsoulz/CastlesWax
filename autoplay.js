@@ -50,7 +50,7 @@ const RECIPE_METAL = 3
 
 //global timer constraint to determine eligible mints
 //we add an hour to accommodate edge cases of time sync
-const MINT_TIMER = 25
+const MINT_TIMER = 24
 
 const LAND_CLAIM_FINE_WOOD_FEE = 16
 const TOKEN_FINEWOOD = "CFWTEMP"
