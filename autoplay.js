@@ -14,6 +14,15 @@ const CONFIG_ENABLE_LAND_AUTO_CRAFT = process.env.CONFIG_ENABLE_LAND_AUTO_CRAFT.
 const CONFIG_WAX_PRIVATE_KEY = process.env.WAX_PRIVATE_KEY
 const CONFIG_WAX_ADDRESS = process.env.WAX_ADDRESS.toLowerCase()
 const CONFIG_LOOP_TIME_IN_MINUTES = process.env.CONFIG_LOOP_TIME_IN_MINUTES || 6
+const CONFIG_LAND_MERGE_MSOURCE_BASE_FEE = process.env.CONFIG_LAND_MERGE_MSOURCE_BASE_FEE
+const CONFIG_RECHARGE_BARON_ROYAL_SEAL_FEE = process.env.CONFIG_RECHARGE_BARON_ROYAL_SEAL_FEE
+const CONFIG_RECHARGE_CASTLE_ROYAL_SEAL_FEE = process.env.CONFIG_RECHARGE_CASTLE_ROYAL_SEAL_FEE
+const CONFIG_RECHARGE_CARPENTER_LUMBER_FEE = process.env.CONFIG_RECHARGE_CARPENTER_LUMBER_FEE
+const CONFIG_RECHARGE_CARPENTER_ROYAL_SEAL_FEE = process.env.CONFIG_RECHARGE_CARPENTER_ROYAL_SEAL_FEE
+const CONFIG_RECHARGE_LUMBERJACK_ROYAL_SEAL_FEE = process.env.CONFIG_RECHARGE_LUMBERJACK_ROYAL_SEAL_FEE
+const CONFIG_RECHARGE_LUMBERJACK_MSOURCE_FEE = process.env.CONFIG_RECHARGE_LUMBERJACK_MSOURCE_FEE
+const CONFIG_RECHARGE_MINER_LUMBER_FEE = process.env.CONFIG_RECHARGE_MINER_LUMBER_FEE
+const CONFIG_RECHARGE_MINER_ROYAL_SEAL_FEE = process.env.CONFIG_RECHARGE_MINER_ROYAL_SEAL_FEE
 
 const rpc = new JsonRpc("https://wax.greymass.com", { fetch })
 const signatureProvider = new JsSignatureProvider([CONFIG_WAX_PRIVATE_KEY])
@@ -32,7 +41,13 @@ const delay = (time) => new Promise((res) => setTimeout(res, time))
 const COLLECTION_NAME = "castlesnftgo"
 
 //templates
+const TEMPLATE_LAND_FARM = 411716
+const TEMPLATE_LAND_RANCH = 411717
+const TEMPLATE_LAND_VILLAGE = 411718
+const TEMPLATE_LAND_TOWN = 411719
+const TEMPLATE_LAND_CITY = 411720
 const TEMPLATE_LAND_CASTLE = 436421
+
 const TEMPLATE_ROYALBARON = 391837
 
 const TEMPLATE_CRAFTER_LUMBERJACK = 456608
@@ -57,24 +72,22 @@ const TOKEN_FINEWOOD = "CFWTEMP"
 const TOKEN_LUMBER = "CLUMBER"
 const TOKEN_MSOURCE = "MSOURCE"
 const TOKEN_METAL = "CMFTEMP"
+
+const LAND_FARM_NAME = "farms1"
+const LAND_RANCH_NAME = "ranches1"
+const LAND_VILLAGE_NAME = "villages1"
+const LAND_TOWN_NAME = "towns1"
+const LAND_CITY_NAME = "cities1"
+
 const ACCOUNT_MSOURCETOKEN = "msourcetoken"
 const ACCOUNT_MSOURCESTAKE = "msourcestake"
 const ACCOUNT_MSOURCEKINGS = "msourcekings"
 const ACCOUNT_MSOURCEGOODS = "msourcegoods"
 const ACCOUNT_MSOURCEGUILD = "msourceguild"
 const ACCOUNT_MSOURCEBARON = "msourcebaron"
+const ACCOUNT_MSOURCEMERGE = "msourcemerge"
 
 const MINT_MAX = 10
-
-//recharge requirements
-const RECHARGE_BARON_ROYAL_SEAL_FEE = 1
-const RECHARGE_CASTLE_ROYAL_SEAL_FEE = 1
-const RECHARGE_CARPENTER_LUMBER_FEE = 6
-const RECHARGE_CARPENTER_ROYAL_SEAL_FEE = 1
-const RECHARGE_LUMBERJACK_ROYAL_SEAL_FEE = 4
-const RECHARGE_LUMBERJACK_MSOURCE_FEE = 400000
-const RECHARGE_MINER_LUMBER_FEE = 6
-const RECHARGE_MINER_ROYAL_SEAL_FEE = 1
 
 //needed to give enough time for blockchain transactions to be confirmed
 const TXN_WAIT_TIME_MS = 20000
@@ -118,6 +131,8 @@ async function main() {
                 await delay(TXN_WAIT_TIME_MS)
             }
 
+            let hasLandClaim = false
+
             if (CONFIG_ENABLE_LAND_AUTO_CRAFT) {
                 let fineWoodBalance = await getFineWoodsBalance()
 
@@ -125,12 +140,21 @@ async function main() {
                     console.log(`${fineWoodBalance} fine woods remaining, so claiming for land`)
                     if (await claimLand()) {
                         fineWoodBalance -= LAND_CLAIM_FINE_WOOD_FEE
+                        hasLandClaim = true
                     } else {
                         console.log("Errors occurred claiming land, so will try again later")
                         break
                     }
                 }
             }
+
+            //check for assets needing a recharge after mint
+            if (hasLandClaim) {
+                console.log("Waiting on blockchain transaction confirmations")
+                await delay(TXN_WAIT_TIME_MS)
+            }
+
+            await mergeLands()
         } catch (err) {
             console.log(`Main Loop: Error - ${err}`)
         }
@@ -183,6 +207,102 @@ async function mintAssets() {
     return didAnyAssetMint
 }
 
+async function mergeLands() {
+    let checkLandMerge = false
+    do {
+        let farms = await getLandsByTemplate(TEMPLATE_LAND_FARM)
+        if ((await mergeLand("farms", CONFIG_LAND_MERGE_MSOURCE_BASE_FEE, LAND_FARM_NAME, farms)) == false) {
+            console.log(`Skipping land merge due to merge failures. Will try again next cycle`)
+            break
+        }
+
+        if (farms.length >= 3) {
+            console.log("Waiting on blockchain transaction confirmations")
+            await delay(TXN_WAIT_TIME_MS)
+        }
+
+        let ranches = await getLandsByTemplate(TEMPLATE_LAND_RANCH)
+        if ((await mergeLand("ranches", CONFIG_LAND_MERGE_MSOURCE_BASE_FEE * 3, LAND_RANCH_NAME, ranches)) == false) {
+            console.log(`Skipping land merge due to merge failures. Will try again next cycle`)
+            break
+        }
+
+        if (ranches.length >= 3) {
+            console.log("Waiting on blockchain transaction confirmations")
+            await delay(TXN_WAIT_TIME_MS)
+        }
+
+        let villages = await getLandsByTemplate(TEMPLATE_LAND_VILLAGE)
+        if ((await mergeLand("villages", CONFIG_LAND_MERGE_MSOURCE_BASE_FEE * 9, LAND_VILLAGE_NAME, villages)) == false) {
+            console.log(`Skipping land merge due to merge failures. Will try again next cycle`)
+            break
+        }
+
+        if (villages.length >= 3) {
+            console.log("Waiting on blockchain transaction confirmations")
+            await delay(TXN_WAIT_TIME_MS)
+        }
+
+        let towns = await getLandsByTemplate(TEMPLATE_LAND_TOWN)
+        if ((await mergeLand("towns", CONFIG_LAND_MERGE_MSOURCE_BASE_FEE * 27, LAND_TOWN_NAME, towns)) == false) {
+            console.log(`Skipping land merge due to merge failures. Will try again next cycle`)
+            break
+        }
+
+        if (towns.length >= 3) {
+            console.log("Waiting on blockchain transaction confirmations")
+            await delay(TXN_WAIT_TIME_MS)
+        }
+
+        let cities = await getLandsByTemplate(TEMPLATE_LAND_CITY)
+        if ((await mergeLand("cities", CONFIG_LAND_MERGE_MSOURCE_BASE_FEE * 81, LAND_CITY_NAME, cities)) == false) {
+            console.log(`Skipping land merge due to merge failures. Will try again next cycle`)
+            break
+        }
+
+        if (cities.length >= 3) {
+            console.log("Waiting on blockchain transaction confirmations")
+            await delay(TXN_WAIT_TIME_MS)
+        }
+
+        //if any lands were attempted, run the loop one more time
+        if (farms.length >= 3 || ranches.length >= 3 || villages.length >= 3 || towns.length >= 3 || cities.length >= 3) {
+            console.log("Cycling land merge to check more additional lands")
+            checkLandMerge = true
+        } else checkLandMerge = false
+    } while (checkLandMerge)
+}
+
+async function mergeLand(displayName, fee, landName, landNfts) {
+    console.log(`You have ${landNfts.length} ${displayName}. ${Math.floor(landNfts.length / 3)} merge transaction(s) available.`)
+
+    let msourceBalance = await getMSourceBalance()
+    let landCounter = 0
+
+    while (landCounter < landNfts.length) {
+        if (landCounter + 3 > landNfts.length) break
+
+        if (fee > msourceBalance) {
+            console.log(`Insufficient MSOURCE ${msourceBalance} to merge land. Need ${fee} MSOURCE`)
+            return false
+        }
+
+        let landsToMerge = []
+        landsToMerge.push(landNfts[landCounter])
+        landCounter++
+        landsToMerge.push(landNfts[landCounter])
+        landCounter++
+        landsToMerge.push(landNfts[landCounter])
+        landCounter++
+
+        if (await merge(landName, landsToMerge, fee)) {
+            msourceBalance -= fee
+        } else return false
+    }
+
+    return true
+}
+
 async function rechargeAssets() {
     let rechargeCount = 0
 
@@ -202,7 +322,7 @@ async function rechargeAssets() {
 
             for (let i = 0; i < barons.needsCharging.length; i++) {
                 //if we run out of seals to recharge, then stop charging
-                if (royalSeals.length - royalSealsUsed < RECHARGE_BARON_ROYAL_SEAL_FEE) {
+                if (royalSeals.length - royalSealsUsed < CONFIG_RECHARGE_BARON_ROYAL_SEAL_FEE) {
                     console.log("Cannot continue charging barons: minimum resources not met")
                     break
                 }
@@ -210,7 +330,7 @@ async function rechargeAssets() {
                 let royalSealsForRecharge = []
                 let tmpRoyalSealsUsed = royalSealsUsed
 
-                for (let j = 0; j < RECHARGE_BARON_ROYAL_SEAL_FEE; j++) {
+                for (let j = 0; j < CONFIG_RECHARGE_BARON_ROYAL_SEAL_FEE; j++) {
                     royalSealsForRecharge[j] = royalSeals[tmpRoyalSealsUsed]
                     tmpRoyalSealsUsed++
                 }
@@ -229,7 +349,7 @@ async function rechargeAssets() {
 
             for (let i = 0; i < castles.needsCharging.length; i++) {
                 //if we run out of seals to recharge, then stop charging
-                if (royalSeals.length - royalSealsUsed < RECHARGE_CASTLE_ROYAL_SEAL_FEE) {
+                if (royalSeals.length - royalSealsUsed < CONFIG_RECHARGE_CASTLE_ROYAL_SEAL_FEE) {
                     console.log("Cannot continue charging castles: minimum resources not met")
                     break
                 }
@@ -237,7 +357,7 @@ async function rechargeAssets() {
                 let royalSealsForRecharge = []
                 let tmpRoyalSealsUsed = royalSealsUsed
 
-                for (let j = 0; j < RECHARGE_CASTLE_ROYAL_SEAL_FEE; j++) {
+                for (let j = 0; j < CONFIG_RECHARGE_CASTLE_ROYAL_SEAL_FEE; j++) {
                     royalSealsForRecharge[j] = royalSeals[tmpRoyalSealsUsed]
                     tmpRoyalSealsUsed++
                 }
@@ -258,7 +378,10 @@ async function rechargeAssets() {
 
             for (let i = 0; i < lumberjacks.needsCharging.length; i++) {
                 //if we run out of minimum number of msource or seals to recharge, then stop charging
-                if (msourceBalance < RECHARGE_LUMBERJACK_MSOURCE_FEE || royalSeals.length - royalSealsUsed < RECHARGE_LUMBERJACK_ROYAL_SEAL_FEE) {
+                if (
+                    msourceBalance < CONFIG_RECHARGE_LUMBERJACK_MSOURCE_FEE ||
+                    royalSeals.length - royalSealsUsed < CONFIG_RECHARGE_LUMBERJACK_ROYAL_SEAL_FEE
+                ) {
                     console.log("Cannot continue charging lumberjacks: minimum resources not met")
                     break
                 }
@@ -266,13 +389,13 @@ async function rechargeAssets() {
                 let royalSealsForRecharge = []
                 let tmpRoyalSealsUsed = royalSealsUsed
 
-                for (let j = 0; j < RECHARGE_LUMBERJACK_ROYAL_SEAL_FEE; j++) {
+                for (let j = 0; j < CONFIG_RECHARGE_LUMBERJACK_ROYAL_SEAL_FEE; j++) {
                     royalSealsForRecharge[j] = royalSeals[tmpRoyalSealsUsed]
                     tmpRoyalSealsUsed++
                 }
 
                 if (await rechargeLumberjack(lumberjacks.needsCharging[i], royalSealsForRecharge)) {
-                    msourceBalance -= RECHARGE_LUMBERJACK_MSOURCE_FEE
+                    msourceBalance -= CONFIG_RECHARGE_LUMBERJACK_MSOURCE_FEE
                     royalSealsUsed += tmpRoyalSealsUsed
                     rechargeCount++
                 } else {
@@ -286,7 +409,10 @@ async function rechargeAssets() {
 
             for (let i = 0; i < carpenters.needsCharging.length; i++) {
                 //if we run out of minimum number of lumber or seals to recharge, then stop charging
-                if (lumberBalance < RECHARGE_CARPENTER_LUMBER_FEE || royalSeals.length - royalSealsUsed < RECHARGE_CARPENTER_ROYAL_SEAL_FEE) {
+                if (
+                    lumberBalance < CONFIG_RECHARGE_CARPENTER_LUMBER_FEE ||
+                    royalSeals.length - royalSealsUsed < CONFIG_RECHARGE_CARPENTER_ROYAL_SEAL_FEE
+                ) {
                     console.log("Cannot continue charging carpenters: minimum resources not met")
                     break
                 }
@@ -294,13 +420,13 @@ async function rechargeAssets() {
                 let royalSealsForRecharge = []
                 let tmpRoyalSealsUsed = royalSealsUsed
 
-                for (let j = 0; j < RECHARGE_CARPENTER_ROYAL_SEAL_FEE; j++) {
+                for (let j = 0; j < CONFIG_RECHARGE_CARPENTER_ROYAL_SEAL_FEE; j++) {
                     royalSealsForRecharge[j] = royalSeals[tmpRoyalSealsUsed]
                     tmpRoyalSealsUsed++
                 }
 
                 if (await rechargeCarpenter(carpenters.needsCharging[i], royalSealsForRecharge)) {
-                    lumberBalance -= RECHARGE_CARPENTER_LUMBER_FEE
+                    lumberBalance -= CONFIG_RECHARGE_CARPENTER_LUMBER_FEE
                     royalSealsUsed += tmpRoyalSealsUsed
                     rechargeCount++
                 } else {
@@ -314,7 +440,7 @@ async function rechargeAssets() {
 
             for (let i = 0; i < miners.needsCharging.length; i++) {
                 //if we run out of minimum number of lumber or seals to recharge, then stop charging
-                if (lumberBalance < RECHARGE_MINER_LUMBER_FEE || royalSeals.length - royalSealsUsed < RECHARGE_MINER_ROYAL_SEAL_FEE) {
+                if (lumberBalance < CONFIG_RECHARGE_MINER_LUMBER_FEE || royalSeals.length - royalSealsUsed < CONFIG_RECHARGE_MINER_ROYAL_SEAL_FEE) {
                     console.log("Cannot continue charging miners: minimum resources not met")
                     break
                 }
@@ -322,13 +448,13 @@ async function rechargeAssets() {
                 let royalSealsForRecharge = []
                 let tmpRoyalSealsUsed = royalSealsUsed
 
-                for (let j = 0; j < RECHARGE_MINER_ROYAL_SEAL_FEE; j++) {
+                for (let j = 0; j < CONFIG_RECHARGE_MINER_ROYAL_SEAL_FEE; j++) {
                     royalSealsForRecharge[j] = royalSeals[tmpRoyalSealsUsed]
                     tmpRoyalSealsUsed++
                 }
 
                 if (await rechargeMiner(miners.needsCharging[i], royalSealsForRecharge)) {
-                    lumberBalance -= RECHARGE_MINER_LUMBER_FEE
+                    lumberBalance -= CONFIG_RECHARGE_MINER_LUMBER_FEE
                     royalSealsUsed += tmpRoyalSealsUsed
                     rechargeCount++
                 } else {
@@ -452,7 +578,7 @@ async function rechargeCarpenter(carpenterId, royalSeals) {
                     data: {
                         from: CONFIG_WAX_ADDRESS,
                         to: ACCOUNT_MSOURCEGOODS,
-                        quantity: `${RECHARGE_CARPENTER_LUMBER_FEE} ${TOKEN_LUMBER}`,
+                        quantity: `${CONFIG_RECHARGE_CARPENTER_LUMBER_FEE} ${TOKEN_LUMBER}`,
                         memo: "deposit",
                     },
                 },
@@ -501,7 +627,7 @@ async function rechargeMiner(minerId, royalSeals) {
                     data: {
                         from: CONFIG_WAX_ADDRESS,
                         to: ACCOUNT_MSOURCEGOODS,
-                        quantity: `${RECHARGE_MINER_LUMBER_FEE} ${TOKEN_LUMBER}`,
+                        quantity: `${CONFIG_RECHARGE_MINER_LUMBER_FEE} ${TOKEN_LUMBER}`,
                         memo: "deposit",
                     },
                 },
@@ -550,7 +676,7 @@ async function rechargeLumberjack(lumberjackId, royalSeals) {
                     data: {
                         from: CONFIG_WAX_ADDRESS,
                         to: ACCOUNT_MSOURCEGOODS,
-                        quantity: `${RECHARGE_LUMBERJACK_MSOURCE_FEE} ${TOKEN_MSOURCE}`,
+                        quantity: `${CONFIG_RECHARGE_LUMBERJACK_MSOURCE_FEE} ${TOKEN_MSOURCE}`,
                         memo: "deposit",
                     },
                 },
@@ -644,6 +770,55 @@ async function craft(assets, recipeId, contract) {
         return true
     } catch (err) {
         console.log(`craft: Error - ${err}`)
+        return false
+    }
+}
+
+async function merge(landType, landAssets, fee) {
+    try {
+        let mergeAction = {
+            actions: [
+                {
+                    account: "atomicassets",
+                    name: "transfer",
+                    authorization: [
+                        {
+                            actor: CONFIG_WAX_ADDRESS,
+                            permission: "active",
+                        },
+                    ],
+                    data: {
+                        from: CONFIG_WAX_ADDRESS,
+                        to: ACCOUNT_MSOURCEMERGE,
+                        asset_ids: landAssets,
+                        memo: `merge:${landType}`,
+                    },
+                },
+                {
+                    account: ACCOUNT_MSOURCETOKEN,
+                    name: "transfer",
+                    authorization: [
+                        {
+                            actor: CONFIG_WAX_ADDRESS,
+                            permission: "active",
+                        },
+                    ],
+                    data: {
+                        from: CONFIG_WAX_ADDRESS,
+                        to: ACCOUNT_MSOURCEMERGE,
+                        quantity: `${fee} ${TOKEN_MSOURCE}`,
+                        memo: "deposit",
+                    },
+                },
+            ],
+        }
+
+        await api.transact(mergeAction, tapos)
+        console.log(`Land merge successful: (${landType})`)
+
+        return true
+    } catch (err) {
+        console.log(`merge: Error - ${err}`)
         return false
     }
 }
@@ -783,6 +958,45 @@ async function getCraftByTemplate(templateId) {
     }
 
     return { eligibleToMint, uneligibleToMint, needsCharging }
+}
+
+async function getLandsByTemplate(templateId) {
+    let land = []
+    let page = 1
+    let keepLooking = true
+
+    try {
+        while (keepLooking) {
+            let nftItems = await fetch(
+                "https://wax.api.atomicassets.io/atomicassets/v1/assets?page=" +
+                    page +
+                    "&limit=40&owner=" +
+                    CONFIG_WAX_ADDRESS +
+                    "&collection_name=" +
+                    COLLECTION_NAME +
+                    "&template_id=" +
+                    templateId
+            )
+            nftItems = await nftItems.json()
+
+            if (nftItems.data.length == 0) break
+
+            for (let j = 0; j < nftItems.data.length; j++) {
+                land.push(nftItems.data[j].asset_id)
+            }
+
+            page++
+
+            if (nftItems.length < 40) keepLooking = false
+            else await delay(20)
+        }
+    } catch (err) {
+        console.log(`getLandsByTemplate: Error - ${err}`)
+
+        land = []
+    }
+
+    return land
 }
 
 async function getRoyalSeals() {
