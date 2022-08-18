@@ -23,6 +23,11 @@ const CONFIG_RECHARGE_LUMBERJACK_ROYAL_SEAL_FEE = process.env.CONFIG_RECHARGE_LU
 const CONFIG_RECHARGE_LUMBERJACK_MSOURCE_FEE = process.env.CONFIG_RECHARGE_LUMBERJACK_MSOURCE_FEE
 const CONFIG_RECHARGE_MINER_LUMBER_FEE = process.env.CONFIG_RECHARGE_MINER_LUMBER_FEE
 const CONFIG_RECHARGE_MINER_ROYAL_SEAL_FEE = process.env.CONFIG_RECHARGE_MINER_ROYAL_SEAL_FEE
+const CONFIG_LAND_FARM_FEE_MULTIPLIER = process.env.CONFIG_LAND_FARM_FEE_MULTIPLIER
+const CONFIG_LAND_RANCH_FEE_MULTIPLIER = process.env.CONFIG_LAND_RANCH_FEE_MULTIPLIER
+const CONFIG_LAND_VILLAGE_FEE_MULTIPLIER = process.env.CONFIG_LAND_VILLAGE_FEE_MULTIPLIER
+const CONFIG_LAND_TOWN_FEE_MULTIPLIER = process.env.CONFIG_LAND_TOWN_FEE_MULTIPLIER
+const CONFIG_LAND_CITY_FEE_MULTIPLIER = process.env.CONFIG_LAND_CITY_FEE_MULTIPLIER
 
 const rpc = new JsonRpc("https://wax.greymass.com", { fetch })
 const signatureProvider = new JsSignatureProvider([CONFIG_WAX_PRIVATE_KEY])
@@ -211,7 +216,7 @@ async function mergeLands() {
     let checkLandMerge = false
     do {
         let farms = await getLandsByTemplate(TEMPLATE_LAND_FARM)
-        if ((await mergeLand("farms", CONFIG_LAND_MERGE_MSOURCE_BASE_FEE, LAND_FARM_NAME, farms)) == false) {
+        if ((await mergeLand("farms", CONFIG_LAND_MERGE_MSOURCE_BASE_FEE * CONFIG_LAND_FARM_FEE_MULTIPLIER, LAND_FARM_NAME, farms)) == false) {
             console.log(`Skipping land merge due to merge failures. Will try again next cycle`)
             break
         }
@@ -222,7 +227,7 @@ async function mergeLands() {
         }
 
         let ranches = await getLandsByTemplate(TEMPLATE_LAND_RANCH)
-        if ((await mergeLand("ranches", CONFIG_LAND_MERGE_MSOURCE_BASE_FEE * 3, LAND_RANCH_NAME, ranches)) == false) {
+        if ((await mergeLand("ranches", CONFIG_LAND_MERGE_MSOURCE_BASE_FEE * CONFIG_LAND_RANCH_FEE_MULTIPLIER, LAND_RANCH_NAME, ranches)) == false) {
             console.log(`Skipping land merge due to merge failures. Will try again next cycle`)
             break
         }
@@ -233,7 +238,10 @@ async function mergeLands() {
         }
 
         let villages = await getLandsByTemplate(TEMPLATE_LAND_VILLAGE)
-        if ((await mergeLand("villages", CONFIG_LAND_MERGE_MSOURCE_BASE_FEE * 9, LAND_VILLAGE_NAME, villages)) == false) {
+        if (
+            (await mergeLand("villages", CONFIG_LAND_MERGE_MSOURCE_BASE_FEE * CONFIG_LAND_VILLAGE_FEE_MULTIPLIER, LAND_VILLAGE_NAME, villages)) ==
+            false
+        ) {
             console.log(`Skipping land merge due to merge failures. Will try again next cycle`)
             break
         }
@@ -244,7 +252,7 @@ async function mergeLands() {
         }
 
         let towns = await getLandsByTemplate(TEMPLATE_LAND_TOWN)
-        if ((await mergeLand("towns", CONFIG_LAND_MERGE_MSOURCE_BASE_FEE * 27, LAND_TOWN_NAME, towns)) == false) {
+        if ((await mergeLand("towns", CONFIG_LAND_MERGE_MSOURCE_BASE_FEE * CONFIG_LAND_TOWN_FEE_MULTIPLIER, LAND_TOWN_NAME, towns)) == false) {
             console.log(`Skipping land merge due to merge failures. Will try again next cycle`)
             break
         }
@@ -255,7 +263,7 @@ async function mergeLands() {
         }
 
         let cities = await getLandsByTemplate(TEMPLATE_LAND_CITY)
-        if ((await mergeLand("cities", CONFIG_LAND_MERGE_MSOURCE_BASE_FEE * 81, LAND_CITY_NAME, cities)) == false) {
+        if ((await mergeLand("cities", CONFIG_LAND_MERGE_MSOURCE_BASE_FEE * CONFIG_LAND_CITY_FEE_MULTIPLIER, LAND_CITY_NAME, cities)) == false) {
             console.log(`Skipping land merge due to merge failures. Will try again next cycle`)
             break
         }
