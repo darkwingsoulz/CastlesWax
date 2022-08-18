@@ -28,6 +28,7 @@ This script is intended to be run via command line and not through a browser
 - Auto claim land from fine wood
 - Auto claim MSOURCE
 - Runs in indefinite loop until you quit the program
+- Merge up all available land types (farms, ranches, villages, towns, cities)
  
 ## Configuration
 ```bash
@@ -49,7 +50,20 @@ CONFIG_ENABLE_LAND_AUTO_CRAFT = false
 #Timers for assets are on 24 hour cycles
 #but the loop should be run at least a couple times per day for assets
 #that are staggered over different times
-CONFIG_LOOP_TIME_IN_HOURS = 6 
+CONFIG_LOOP_TIME_IN_MINUTES = 5
+
+#land merge fees
+CONFIG_LAND_MERGE_MSOURCE_FEE = 2160
+
+#recharge fees
+CONFIG_RECHARGE_BARON_ROYAL_SEAL_FEE = 1
+CONFIG_RECHARGE_CASTLE_ROYAL_SEAL_FEE = 1
+CONFIG_RECHARGE_CARPENTER_LUMBER_FEE = 6
+CONFIG_RECHARGE_CARPENTER_ROYAL_SEAL_FEE = 1
+CONFIG_RECHARGE_LUMBERJACK_ROYAL_SEAL_FEE = 4
+CONFIG_RECHARGE_LUMBERJACK_MSOURCE_FEE = 400000
+CONFIG_RECHARGE_MINER_LUMBER_FEE = 6
+CONFIG_RECHARGE_MINER_ROYAL_SEAL_FEE = 1
 
 ```
 
