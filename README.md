@@ -29,6 +29,7 @@ This script is intended to be run via command line and not through a browser
 - Auto claim MSOURCE
 - Runs in indefinite loop until you quit the program
 - Merge up all available land types (farms, ranches, villages, towns, cities)
+- Free2Play banquet/power claims
  
 ## Configuration
 ```bash
