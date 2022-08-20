@@ -108,7 +108,6 @@ async function main() {
             let waxBalance = await getWaxBalance()
 
             if (waxBalance > Number(CONFIG_FREE_BANQUET_CLAIM_FEE)) {
-                console.log("running")
                 await free2playBanquetClaim()
             }
             await free2playPowerClaim()
