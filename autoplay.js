@@ -28,6 +28,7 @@ const CONFIG_LAND_RANCH_FEE_MULTIPLIER = process.env.CONFIG_LAND_RANCH_FEE_MULTI
 const CONFIG_LAND_VILLAGE_FEE_MULTIPLIER = process.env.CONFIG_LAND_VILLAGE_FEE_MULTIPLIER
 const CONFIG_LAND_TOWN_FEE_MULTIPLIER = process.env.CONFIG_LAND_TOWN_FEE_MULTIPLIER
 const CONFIG_LAND_CITY_FEE_MULTIPLIER = process.env.CONFIG_LAND_CITY_FEE_MULTIPLIER
+const CONFIG_FREE_BANQUET_CLAIM_FEE = process.env.CONFIG_FREE_BANQUET_CLAIM_FEE
 
 const rpc = new JsonRpc("https://wax.greymass.com", { fetch })
 const signatureProvider = new JsSignatureProvider([CONFIG_WAX_PRIVATE_KEY])
@@ -91,6 +92,7 @@ const ACCOUNT_MSOURCEGOODS = "msourcegoods"
 const ACCOUNT_MSOURCEGUILD = "msourceguild"
 const ACCOUNT_MSOURCEBARON = "msourcebaron"
 const ACCOUNT_MSOURCEMERGE = "msourcemerge"
+const ACCOUNT_MSOURCEROYAL = "msourceroyal"
 
 const MINT_MAX = 10
 
@@ -103,6 +105,14 @@ async function main() {
     // constantly runs the program on a configurable timed loop
     while (true) {
         try {
+            let waxBalance = await getWaxBalance()
+
+            if (waxBalance > Number(CONFIG_FREE_BANQUET_CLAIM_FEE)) {
+                console.log("running")
+                await free2playBanquetClaim()
+            }
+            await free2playPowerClaim()
+
             if (msourceClaimCheck == 0) {
                 //claiming MSOURCE
                 console.log("Claiming MSOURCE...")
@@ -221,20 +231,10 @@ async function mergeLands() {
             break
         }
 
-        if (farms.length >= 3) {
-            console.log("Waiting on blockchain transaction confirmations")
-            await delay(TXN_WAIT_TIME_MS)
-        }
-
         let ranches = await getLandsByTemplate(TEMPLATE_LAND_RANCH)
         if ((await mergeLand("ranches", CONFIG_LAND_MERGE_MSOURCE_BASE_FEE * CONFIG_LAND_RANCH_FEE_MULTIPLIER, LAND_RANCH_NAME, ranches)) == false) {
             console.log(`Skipping land merge due to merge failures. Will try again next cycle`)
             break
-        }
-
-        if (ranches.length >= 3) {
-            console.log("Waiting on blockchain transaction confirmations")
-            await delay(TXN_WAIT_TIME_MS)
         }
 
         let villages = await getLandsByTemplate(TEMPLATE_LAND_VILLAGE)
@@ -246,31 +246,16 @@ async function mergeLands() {
             break
         }
 
-        if (villages.length >= 3) {
-            console.log("Waiting on blockchain transaction confirmations")
-            await delay(TXN_WAIT_TIME_MS)
-        }
-
         let towns = await getLandsByTemplate(TEMPLATE_LAND_TOWN)
         if ((await mergeLand("towns", CONFIG_LAND_MERGE_MSOURCE_BASE_FEE * CONFIG_LAND_TOWN_FEE_MULTIPLIER, LAND_TOWN_NAME, towns)) == false) {
             console.log(`Skipping land merge due to merge failures. Will try again next cycle`)
             break
         }
 
-        if (towns.length >= 3) {
-            console.log("Waiting on blockchain transaction confirmations")
-            await delay(TXN_WAIT_TIME_MS)
-        }
-
         let cities = await getLandsByTemplate(TEMPLATE_LAND_CITY)
         if ((await mergeLand("cities", CONFIG_LAND_MERGE_MSOURCE_BASE_FEE * CONFIG_LAND_CITY_FEE_MULTIPLIER, LAND_CITY_NAME, cities)) == false) {
             console.log(`Skipping land merge due to merge failures. Will try again next cycle`)
             break
-        }
-
-        if (cities.length >= 3) {
-            console.log("Waiting on blockchain transaction confirmations")
-            await delay(TXN_WAIT_TIME_MS)
         }
 
         //if any lands were attempted, run the loop one more time
@@ -305,6 +290,8 @@ async function mergeLand(displayName, fee, landName, landNfts) {
 
         if (await merge(landName, landsToMerge, fee)) {
             msourceBalance -= fee
+            console.log("Waiting on blockchain transaction confirmations")
+            await delay(5000)
         } else return false
     }
 
@@ -827,6 +814,85 @@ async function merge(landType, landAssets, fee) {
         return true
     } catch (err) {
         console.log(`merge: Error - ${err}`)
+        return false
+    }
+}
+
+async function free2playBanquetClaim() {
+    try {
+        let banquetClaimAction = {
+            actions: [
+                {
+                    account: "eosio.token",
+                    name: "transfer",
+                    authorization: [
+                        {
+                            actor: CONFIG_WAX_ADDRESS,
+                            permission: "active",
+                        },
+                    ],
+                    data: {
+                        from: CONFIG_WAX_ADDRESS,
+                        to: ACCOUNT_MSOURCEROYAL,
+                        quantity: `${Number(CONFIG_FREE_BANQUET_CLAIM_FEE).toFixed(8)} WAX`,
+                        memo: "deposit",
+                    },
+                },
+                {
+                    account: ACCOUNT_MSOURCEROYAL,
+                    name: "unbox",
+                    authorization: [
+                        {
+                            actor: CONFIG_WAX_ADDRESS,
+                            permission: "active",
+                        },
+                    ],
+                    data: {
+                        claimer: CONFIG_WAX_ADDRESS,
+                        pack_id: 1,
+                    },
+                },
+            ],
+        }
+
+        await api.transact(banquetClaimAction, tapos)
+        console.log("Banquet claim successful!")
+
+        return true
+    } catch (err) {
+        //ignore error here because its time restricted and would get annoying filling up the screen
+        //a timer could track when to call this but not worth the effort
+        return false
+    }
+}
+
+async function free2playPowerClaim() {
+    try {
+        let powerClaimAction = {
+            actions: [
+                {
+                    account: ACCOUNT_MSOURCEROYAL,
+                    name: "claim",
+                    authorization: [
+                        {
+                            actor: CONFIG_WAX_ADDRESS,
+                            permission: "active",
+                        },
+                    ],
+                    data: {
+                        player: CONFIG_WAX_ADDRESS,
+                    },
+                },
+            ],
+        }
+
+        await api.transact(powerClaimAction, tapos)
+        console.log("Power claim successful!")
+
+        return true
+    } catch (err) {
+        //ignore error here because its time restricted and would get annoying filling up the screen
+        //a timer could track when to call this but not worth the effort
         return false
     }
 }
