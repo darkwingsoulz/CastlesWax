@@ -95,6 +95,7 @@ const ACCOUNT_MSOURCEMERGE = "msourcemerge"
 const ACCOUNT_MSOURCEROYAL = "msourceroyal"
 
 const MINT_MAX = 10
+const BILLING_ERROR_WAIT = 60000
 
 //needed to give enough time for blockchain transactions to be confirmed
 const TXN_WAIT_TIME_MS = 20000
@@ -171,6 +172,7 @@ async function main() {
             await mergeLands()
         } catch (err) {
             console.log(`Main Loop: Error - ${err}`)
+            await handleError(err)
         }
 
         console.log(`Waiting ${CONFIG_LOOP_TIME_IN_MINUTES} minute(s) before next cycle.`)
@@ -216,6 +218,7 @@ async function mintAssets() {
         return didAnyAssetMint
     } catch (err) {
         console.log(`mintAssets: Error - ${err}`)
+        await handleError(err)
     }
 
     return didAnyAssetMint
@@ -458,6 +461,7 @@ async function rechargeAssets() {
         }
     } catch (err) {
         console.log(`rechargeAssets: Error - ${err}`)
+        await handleError(err)
     }
 
     return rechargeCount
@@ -486,6 +490,7 @@ async function mint(eligibleToMint, recipeId, contract) {
         return false
     } catch (err) {
         console.log(`mint: Error - ${err}`)
+        await handleError(err)
         return false
     }
 }
@@ -519,6 +524,7 @@ async function rechargeBaron(baronId, royalSeals) {
         return true
     } catch (err) {
         console.log(`rechargeBaron: Error - ${err}`)
+        await handleError(err)
         return false
     }
 }
@@ -552,6 +558,7 @@ async function rechargeCastle(castleId, royalSeals) {
         return true
     } catch (err) {
         console.log(`rechargeCastle: Error - ${err}`)
+        await handleError(err)
         return false
     }
 }
@@ -601,6 +608,7 @@ async function rechargeCarpenter(carpenterId, royalSeals) {
         return true
     } catch (err) {
         console.log(`rechargeCarpenter: Error - ${err}`)
+        await handleError(err)
         return false
     }
 }
@@ -650,6 +658,7 @@ async function rechargeMiner(minerId, royalSeals) {
         return true
     } catch (err) {
         console.log(`rechargeMiner: Error - ${err}`)
+        await handleError(err)
         return false
     }
 }
@@ -699,6 +708,7 @@ async function rechargeLumberjack(lumberjackId, royalSeals) {
         return true
     } catch (err) {
         console.log(`rechargeLumberjack: Error - ${err}`)
+        await handleError(err)
         return false
     }
 }
@@ -728,6 +738,7 @@ async function claimMSource() {
         return true
     } catch (err) {
         console.log(`claimMSource: Error - ${err}`)
+        await handleError(err)
         return false
     }
 }
@@ -764,6 +775,7 @@ async function craft(assets, recipeId, contract) {
         return true
     } catch (err) {
         console.log(`craft: Error - ${err}`)
+        await handleError(err)
         return false
     }
 }
@@ -813,6 +825,7 @@ async function merge(landType, landAssets, fee) {
         return true
     } catch (err) {
         console.log(`merge: Error - ${err}`)
+        await handleError(err)
         return false
     }
 }
@@ -861,6 +874,7 @@ async function free2playBanquetClaim() {
     } catch (err) {
         //ignore error here because its time restricted and would get annoying filling up the screen
         //a timer could track when to call this but not worth the effort
+        await handleError(err)
         return false
     }
 }
@@ -892,6 +906,7 @@ async function free2playPowerClaim() {
     } catch (err) {
         //ignore error here because its time restricted and would get annoying filling up the screen
         //a timer could track when to call this but not worth the effort
+        await handleError(err)
         return false
     }
 }
@@ -939,6 +954,7 @@ async function claimLand() {
         return true
     } catch (err) {
         console.log(`claimLand: Error - ${err}`)
+        await handleError(err)
         return false
     }
 }
@@ -971,6 +987,7 @@ async function payInstantFor2PackLand(royalSealAsset) {
         return true
     } catch (err) {
         console.log(`payInstantFor2PackLand: Error - ${err}`)
+        await handleError(err)
         return false
     }
 }
@@ -1024,6 +1041,7 @@ async function getCraftByTemplate(templateId) {
         }
     } catch (err) {
         console.log(`getCraftByTemplate: Error - ${err}`)
+        await handleError(err)
 
         eligibleToMint = []
         uneligibleToMint = []
@@ -1065,6 +1083,7 @@ async function getLandsByTemplate(templateId) {
         }
     } catch (err) {
         console.log(`getLandsByTemplate: Error - ${err}`)
+        await handleError(err)
 
         land = []
     }
@@ -1106,6 +1125,7 @@ async function getRoyalSeals() {
         return royalSeals
     } catch (err) {
         console.log(`getRoyalSeals: Error - ${err}`)
+        await handleError(err)
         return []
     }
 }
@@ -1116,6 +1136,7 @@ async function getMSourceBalance() {
         return Number(bal[0].split(" ")[0])
     } catch (err) {
         console.log(`getMSourceBalance: Error - ${err}`)
+        await handleError(err)
         return 0
     }
 }
@@ -1126,6 +1147,7 @@ async function getLumberBalance() {
         return 0
     } catch (err) {
         console.log(`getLumberBalance: Error - ${err}`)
+        await handleError(err)
         return 0
     }
 }
@@ -1136,6 +1158,7 @@ async function getFineWoodsBalance() {
         return 0
     } catch (err) {
         console.log(`getFineWoodsBalance: Error - ${err}`)
+        await handleError(err)
         return 0
     }
 }
@@ -1147,6 +1170,7 @@ async function getMetalBalance() {
         return 0
     } catch (err) {
         console.log(`getMetalBalance: Error - ${err}`)
+        await handleError(err)
         return 0
     }
 }
@@ -1158,6 +1182,7 @@ async function getWaxBalance() {
         return 0
     } catch (err) {
         console.log(`getWaxBalance: Error - ${err}`)
+        await handleError(err)
         return 0
     }
 }
@@ -1189,6 +1214,16 @@ async function stakeCPU(amount) {
         await api.transact(stakeCPUAction, tapos)
     } catch (err) {
         console.log(`stakeCPU: Error - ${err}`)
+        await handleError(err)
+    }
+}
+
+async function handleError(err) {
+    if (err.toLowerCase().indexOf("billing") > -1) {
+        console.log(
+            "Waiting 60 seconds due to billing errors and to prevent spamming failures.  If this occurs often, consider staking more WAX for CPU on the account."
+        )
+        await delay(BILLING_ERROR_WAIT)
     }
 }
 
