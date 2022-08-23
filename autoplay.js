@@ -1219,12 +1219,14 @@ async function stakeCPU(amount) {
 }
 
 async function handleError(err) {
-    if (err.toLowerCase().indexOf("billing") > -1) {
-        console.log(
-            "Waiting 60 seconds due to billing errors and to prevent spamming failures.  If this occurs often, consider staking more WAX for CPU on the account."
-        )
-        await delay(BILLING_ERROR_WAIT)
-    }
+    try {
+        if (err.toLowerCase().indexOf("billing") > -1) {
+            console.log(
+                "Waiting 60 seconds due to billing errors and to prevent spamming failures.  If this occurs often, consider staking more WAX for CPU on the account."
+            )
+            await delay(BILLING_ERROR_WAIT)
+        }
+    } catch (err) {}
 }
 
 //run program
