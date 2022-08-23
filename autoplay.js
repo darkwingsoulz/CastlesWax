@@ -259,7 +259,7 @@ async function mergeLands() {
             console.log(`Skipping land merge due to merge failures. Will try again next cycle`)
             break
         }
-
+        await delay(5000)
         //if any lands were attempted, run the loop one more time
         if (farms.length >= 3 || ranches.length >= 3 || villages.length >= 3 || towns.length >= 3 || cities.length >= 3) {
             console.log("Cycling land merge to check more additional lands")
