@@ -232,13 +232,13 @@ async function mergeLands() {
             console.log(`Skipping land merge due to merge failures. Will try again next cycle`)
             break
         }
-
+        await delay(5000)
         let ranches = await getLandsByTemplate(TEMPLATE_LAND_RANCH)
         if ((await mergeLand("ranches", CONFIG_LAND_MERGE_MSOURCE_BASE_FEE * CONFIG_LAND_RANCH_FEE_MULTIPLIER, LAND_RANCH_NAME, ranches)) == false) {
             console.log(`Skipping land merge due to merge failures. Will try again next cycle`)
             break
         }
-
+        await delay(5000)
         let villages = await getLandsByTemplate(TEMPLATE_LAND_VILLAGE)
         if (
             (await mergeLand("villages", CONFIG_LAND_MERGE_MSOURCE_BASE_FEE * CONFIG_LAND_VILLAGE_FEE_MULTIPLIER, LAND_VILLAGE_NAME, villages)) ==
@@ -247,13 +247,13 @@ async function mergeLands() {
             console.log(`Skipping land merge due to merge failures. Will try again next cycle`)
             break
         }
-
+        await delay(5000)
         let towns = await getLandsByTemplate(TEMPLATE_LAND_TOWN)
         if ((await mergeLand("towns", CONFIG_LAND_MERGE_MSOURCE_BASE_FEE * CONFIG_LAND_TOWN_FEE_MULTIPLIER, LAND_TOWN_NAME, towns)) == false) {
             console.log(`Skipping land merge due to merge failures. Will try again next cycle`)
             break
         }
-
+        await delay(5000)
         let cities = await getLandsByTemplate(TEMPLATE_LAND_CITY)
         if ((await mergeLand("cities", CONFIG_LAND_MERGE_MSOURCE_BASE_FEE * CONFIG_LAND_CITY_FEE_MULTIPLIER, LAND_CITY_NAME, cities)) == false) {
             console.log(`Skipping land merge due to merge failures. Will try again next cycle`)
