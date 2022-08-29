@@ -1037,7 +1037,7 @@ async function getCraftByTemplate(templateId) {
             page++
 
             if (nftItems.length < 40) keepLooking = false
-            else await delay(20)
+            else await delay(100)
         }
     } catch (err) {
         console.log(`getCraftByTemplate: Error - ${err}`)
@@ -1079,7 +1079,7 @@ async function getLandsByTemplate(templateId) {
             page++
 
             if (nftItems.length < 40) keepLooking = false
-            else await delay(20)
+            else await delay(100)
         }
     } catch (err) {
         console.log(`getLandsByTemplate: Error - ${err}`)
@@ -1119,7 +1119,7 @@ async function getRoyalSeals() {
             page++
 
             if (nftItems.length < 40) keepLooking = false
-            else await delay(20)
+            else await delay(100)
         }
 
         return royalSeals
