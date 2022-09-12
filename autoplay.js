@@ -961,39 +961,6 @@ async function claimLand() {
     }
 }
 
-async function payInstantFor2PackLand(royalSealAsset) {
-    try {
-        let claimLandAction = {
-            actions: [
-                {
-                    account: "atomicassets",
-                    name: "transfer",
-                    authorization: [
-                        {
-                            actor: CONFIG_WAX_ADDRESS,
-                            permission: "active",
-                        },
-                    ],
-                    data: {
-                        from: CONFIG_WAX_ADDRESS,
-                        to: ACCOUNT_MSOURCEGUILD,
-                        asset_ids: [royalSealAsset],
-                        memo: "instant:1",
-                    },
-                },
-            ],
-        }
-
-        await api.transact(claimLandAction, tapos)
-        console.log("Land claimed successful!")
-        return true
-    } catch (err) {
-        console.log(`payInstantFor2PackLand: Error - ${err}`)
-        await handleError(err)
-        return false
-    }
-}
-
 async function getCraftByTemplate(templateId) {
     let eligibleToMint = []
     let uneligibleToMint = []
