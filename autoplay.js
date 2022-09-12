@@ -29,6 +29,9 @@ const CONFIG_LAND_VILLAGE_FEE_MULTIPLIER = process.env.CONFIG_LAND_VILLAGE_FEE_M
 const CONFIG_LAND_TOWN_FEE_MULTIPLIER = process.env.CONFIG_LAND_TOWN_FEE_MULTIPLIER
 const CONFIG_LAND_CITY_FEE_MULTIPLIER = process.env.CONFIG_LAND_CITY_FEE_MULTIPLIER
 const CONFIG_FREE_BANQUET_CLAIM_FEE = process.env.CONFIG_FREE_BANQUET_CLAIM_FEE
+const CONFIG_LAND_CLAIM_2PACK_FINE_WOOD_FEE = process.env.CONFIG_LAND_CLAIM_2PACK_FINE_WOOD_FEE
+const CONFIG_LAND_CLAIM_5PACK_FINE_WOOD_FEE = process.env.CONFIG_LAND_CLAIM_5PACK_FINE_WOOD_FEE
+const CONFIG_LAND_CLAIM_5PACK_SEAFARER_MAP_FEE = process.env.CONFIG_LAND_CLAIM_5PACK_SEAFARER_MAP_FEE
 
 const rpc = new JsonRpc("https://wax.greymass.com", { fetch })
 const signatureProvider = new JsSignatureProvider([CONFIG_WAX_PRIVATE_KEY])
@@ -73,7 +76,6 @@ const RECIPE_METAL = 3
 //we add an hour to accommodate edge cases of time sync
 const MINT_TIMER = 24
 
-const LAND_CLAIM_FINE_WOOD_FEE = 16
 const TOKEN_FINEWOOD = "CFWTEMP"
 const TOKEN_LUMBER = "CLUMBER"
 const TOKEN_MSOURCE = "MSOURCE"
@@ -151,10 +153,10 @@ async function main() {
             if (CONFIG_ENABLE_LAND_AUTO_CRAFT) {
                 let fineWoodBalance = await getFineWoodsBalance()
 
-                while (fineWoodBalance >= LAND_CLAIM_FINE_WOOD_FEE) {
+                while (fineWoodBalance >= CONFIG_LAND_CLAIM_2PACK_FINE_WOOD_FEE) {
                     console.log(`${fineWoodBalance} fine woods remaining, so claiming for land`)
                     if (await claimLand()) {
-                        fineWoodBalance -= LAND_CLAIM_FINE_WOOD_FEE
+                        fineWoodBalance -= CONFIG_LAND_CLAIM_2PACK_FINE_WOOD_FEE
                         hasLandClaim = true
                     } else {
                         console.log("Errors occurred claiming land, so will try again later")
@@ -927,7 +929,7 @@ async function claimLand() {
                     data: {
                         from: CONFIG_WAX_ADDRESS,
                         to: ACCOUNT_MSOURCEGUILD,
-                        quantity: `${LAND_CLAIM_FINE_WOOD_FEE} ${TOKEN_FINEWOOD}`,
+                        quantity: `${CONFIG_LAND_CLAIM_2PACK_FINE_WOOD_FEE} ${TOKEN_FINEWOOD}`,
                         memo: "deposit",
                     },
                 },
