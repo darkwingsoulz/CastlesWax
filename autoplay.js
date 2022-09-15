@@ -29,9 +29,9 @@ const CONFIG_LAND_VILLAGE_FEE_MULTIPLIER = process.env.CONFIG_LAND_VILLAGE_FEE_M
 const CONFIG_LAND_TOWN_FEE_MULTIPLIER = process.env.CONFIG_LAND_TOWN_FEE_MULTIPLIER
 const CONFIG_LAND_CITY_FEE_MULTIPLIER = process.env.CONFIG_LAND_CITY_FEE_MULTIPLIER
 const CONFIG_FREE_BANQUET_CLAIM_FEE = process.env.CONFIG_FREE_BANQUET_CLAIM_FEE
-const CONFIG_LAND_CLAIM_2PACK_FINE_WOOD_FEE = process.env.CONFIG_LAND_CLAIM_2PACK_FINE_WOOD_FEE
-const CONFIG_LAND_CLAIM_5PACK_FINE_WOOD_FEE = process.env.CONFIG_LAND_CLAIM_5PACK_FINE_WOOD_FEE
-const CONFIG_LAND_CLAIM_5PACK_SEAFARER_MAP_FEE = process.env.CONFIG_LAND_CLAIM_5PACK_SEAFARER_MAP_FEE
+const CONFIG_EXPLORERS_PACK_FINE_WOOD_FEE = process.env.CONFIG_EXPLORERS_PACK_FINE_WOOD_FEE
+const CONFIG_SEAFARERS_PACK_FINE_WOOD_FEE = process.env.CONFIG_SEAFARERS_PACK_FINE_WOOD_FEE
+const CONFIG_SEAFARERS_PACK_SEAFARER_MAP_FEE = process.env.CONFIG_SEAFARERS_PACK_SEAFARER_MAP_FEE
 
 const rpc = new JsonRpc("https://wax.greymass.com", { fetch })
 const signatureProvider = new JsSignatureProvider([CONFIG_WAX_PRIVATE_KEY])
@@ -64,7 +64,14 @@ const TEMPLATE_CRAFTER_CARPENTER = 481431
 const TEMPLATE_CRAFTER_MINER = 552311
 
 const TEMPLATE_MAT_ROYAL_SEAL = 411437
-const TEMPLATE_PACK_2LANDS = 527506
+
+//packs
+const TEMPLATE_EXPLORERS_PACK = 527506
+const TEMPLATE_SEAFARERS_PACK = 527513
+
+//maps
+const TEMPLATE_MAT_SEAFARER_MAP_FRAGMENT = 527097
+const TEMPLATE_MAT_SEAFARER_MAP = 527102
 
 const RECIPE_LUMBER = 1
 const RECIPE_FINE_WOOD = 2
@@ -111,14 +118,14 @@ async function main() {
             let waxBalance = await getWaxBalance()
 
             if (waxBalance > Number(CONFIG_FREE_BANQUET_CLAIM_FEE)) {
-                await free2playBanquetClaim()
+                await contract_free2playBanquetClaim()
             }
-            await free2playPowerClaim()
+            await contract_free2playPowerClaim()
 
             if (msourceClaimCheck == 0) {
                 //claiming MSOURCE
                 console.log("Claiming MSOURCE...")
-                if (await claimMSource()) {
+                if (await contract_claimMSource()) {
                     //wait after claiming so balance can update
                     console.log("Waiting on blockchain transaction confirmations")
                     await delay(TXN_WAIT_TIME_MS)
@@ -148,30 +155,29 @@ async function main() {
                 await delay(TXN_WAIT_TIME_MS)
             }
 
-            let hasLandClaim = false
+            await mergeLands()
 
-            if (CONFIG_ENABLE_LAND_AUTO_CRAFT) {
-                let fineWoodBalance = await getFineWoodsBalance()
-
-                while (fineWoodBalance >= CONFIG_LAND_CLAIM_2PACK_FINE_WOOD_FEE) {
-                    console.log(`${fineWoodBalance} fine woods remaining, so claiming for land`)
-                    if (await claimLand()) {
-                        fineWoodBalance -= CONFIG_LAND_CLAIM_2PACK_FINE_WOOD_FEE
-                        hasLandClaim = true
-                    } else {
-                        console.log("Errors occurred claiming land, so will try again later")
-                        break
-                    }
-                }
-            }
-
-            //check for assets needing a recharge after mint
-            if (hasLandClaim) {
+            let mapsCreated = await craftMaps()
+            if (mapsCreated) {
                 console.log("Waiting on blockchain transaction confirmations")
                 await delay(TXN_WAIT_TIME_MS)
             }
 
-            await mergeLands()
+            if (CONFIG_ENABLE_LAND_AUTO_CRAFT) {
+                console.log("Processing land pack crafting...")
+                await craftLandPacks()
+            }
+
+            if (await claimAllPacks()) {
+                console.log("Waiting on blockchain transaction confirmations")
+                await delay(TXN_WAIT_TIME_MS)
+            }
+
+            //unboxing packs
+            await unboxLandPacks()
+
+            //reveal packs
+            await revealLandPacks()
         } catch (err) {
             console.log(`Main Loop: Error - ${err}`)
             await handleError(err)
@@ -179,6 +185,147 @@ async function main() {
 
         console.log(`Waiting ${CONFIG_LOOP_TIME_IN_MINUTES} minute(s) before next cycle.`)
         await delay(Number(CONFIG_LOOP_TIME_IN_MINUTES) * 60 * 1000)
+    }
+}
+
+async function revealLandPacks() {
+    try {
+        let getReveals = await rpc.get_table_rows({
+            json: true,
+            code: "atomicpacksx",
+            scope: "atomicpacksx",
+            reverse: false,
+            show_payer: false,
+            lower_bound: CONFIG_WAX_ADDRESS,
+            upper_bound: CONFIG_WAX_ADDRESS,
+            limit: 200,
+            table: "unboxpacks",
+            index_position: 2,
+            key_type: "name",
+        })
+        for (let i = 0; i < getReveals.rows.length; i++) {
+            let reveal = await contract_revealLandPack(getReveals.rows[i].pack_asset_id)
+            if (!reveal) {
+                console.log("Error occurred revealing land pack, will try again later.")
+                break
+            }
+        }
+    } catch (err) {
+        console.log(`revealLandPacks: Error - ${err}`)
+        await handleError(err)
+        return false
+    }
+}
+
+async function unboxLandPacks() {
+    console.log("Unboxing available explorer packs...")
+
+    let explorerPacks = await getNftsByTemplate(TEMPLATE_EXPLORERS_PACK)
+
+    for (let i = 0; i < explorerPacks.length; i++) {
+        await contract_unboxLandPack(explorerPacks[i])
+    }
+
+    console.log("Unboxing available seafarer packs...")
+
+    let seafarerPacks = await getNftsByTemplate(TEMPLATE_SEAFARERS_PACK)
+
+    for (let i = 0; i < seafarerPacks.length; i++) {
+        await contract_unboxLandPack(seafarerPacks[i])
+    }
+}
+
+async function claimAllPacks() {
+    try {
+        let getPacks = await rpc.get_table_rows({
+            json: true,
+            code: "msourceguild",
+            scope: CONFIG_WAX_ADDRESS,
+            reverse: false,
+            show_payer: false,
+            limit: 1000,
+            table: "crafts",
+            index_position: 1,
+        })
+
+        for (let i = 0; i < getPacks.rows.length; i++) {
+            let row = await getPacks.rows[i]
+
+            if (row.pack_to_craft.template_id == TEMPLATE_EXPLORERS_PACK || row.pack_to_craft.template_id == TEMPLATE_SEAFARERS_PACK) {
+                let formatClaimTime = row.time_to_claim.toString().padEnd(13, "0")
+
+                let checkTime = parseInt(new Date() - new Date(Number(formatClaimTime))) / 1000 / 60 / 60
+                if (checkTime > 0) {
+                    let attemptClaim = await contract_claimLandPack(row.row_id)
+                    if (!attemptClaim) {
+                        console.log("Error occurred claiming land pack, will try again later.")
+                        break
+                    }
+                }
+            }
+        }
+    } catch (err) {
+        console.log(`claimAllPacks: Error - ${err}`)
+        await handleError(err)
+        return false
+    }
+}
+
+async function craftMaps() {
+    console.log("Processing map fragments...")
+    let seafarerMapFragments = await getNftsByTemplate(TEMPLATE_MAT_SEAFARER_MAP_FRAGMENT)
+    let fragmentCounter = 0
+    let mergeCount = 0
+
+    while (fragmentCounter < seafarerMapFragments.length) {
+        if (fragmentCounter + 3 > seafarerMapFragments.length) break
+
+        let fragmentsToMerge = []
+        fragmentsToMerge.push(seafarerMapFragments[fragmentCounter])
+        fragmentCounter++
+        fragmentsToMerge.push(seafarerMapFragments[fragmentCounter])
+        fragmentCounter++
+        fragmentsToMerge.push(seafarerMapFragments[fragmentCounter])
+        fragmentCounter++
+
+        if (await contract_blendSeafarerMapFragments(fragmentsToMerge)) {
+            mergeCount++
+            await delay(1000)
+        } else return false
+    }
+
+    return mergeCount > 0
+}
+
+async function craftLandPacks() {
+    let fineWoodBalance = await getFineWoodsBalance()
+    let seafarerMaps = await getNftsByTemplate(TEMPLATE_MAT_SEAFARER_MAP)
+    let seafarerMapsBalance = seafarerMaps.length
+    let seafarerMapCounterIndex = 0
+
+    while (fineWoodBalance >= CONFIG_SEAFARERS_PACK_FINE_WOOD_FEE && seafarerMapsBalance >= CONFIG_SEAFARERS_PACK_SEAFARER_MAP_FEE) {
+        let maps = []
+        for (let i = 0; i < CONFIG_SEAFARERS_PACK_SEAFARER_MAP_FEE; i++) {
+            maps.push(seafarerMaps[seafarerMapCounterIndex])
+            seafarerMapCounterIndex++
+        }
+
+        if (await contract_createSeafarersPack(maps)) {
+            fineWoodBalance -= CONFIG_SEAFARERS_PACK_FINE_WOOD_FEE
+            seafarerMapsBalance -= CONFIG_SEAFARERS_PACK_SEAFARER_MAP_FEE
+        } else {
+            console.log("Errors occurred create seafarer packs, so will try again later")
+            break
+        }
+    }
+
+    while (fineWoodBalance >= CONFIG_EXPLORERS_PACK_FINE_WOOD_FEE) {
+        if (await contract_createExplorersPack()) {
+            fineWoodBalance -= CONFIG_EXPLORERS_PACK_FINE_WOOD_FEE
+        } else {
+            console.log("Errors occurred creating explorer packs, so will try again later")
+            break
+        }
     }
 }
 
@@ -227,21 +374,22 @@ async function mintAssets() {
 }
 
 async function mergeLands() {
+    console.log("Processing land merges...")
     let checkLandMerge = false
     do {
-        let farms = await getLandsByTemplate(TEMPLATE_LAND_FARM)
+        let farms = await getNftsByTemplate(TEMPLATE_LAND_FARM)
         if ((await mergeLand("farms", CONFIG_LAND_MERGE_MSOURCE_BASE_FEE * CONFIG_LAND_FARM_FEE_MULTIPLIER, LAND_FARM_NAME, farms)) == false) {
             console.log(`Skipping land merge due to merge failures. Will try again next cycle`)
             break
         }
         await delay(5000)
-        let ranches = await getLandsByTemplate(TEMPLATE_LAND_RANCH)
+        let ranches = await getNftsByTemplate(TEMPLATE_LAND_RANCH)
         if ((await mergeLand("ranches", CONFIG_LAND_MERGE_MSOURCE_BASE_FEE * CONFIG_LAND_RANCH_FEE_MULTIPLIER, LAND_RANCH_NAME, ranches)) == false) {
             console.log(`Skipping land merge due to merge failures. Will try again next cycle`)
             break
         }
         await delay(5000)
-        let villages = await getLandsByTemplate(TEMPLATE_LAND_VILLAGE)
+        let villages = await getNftsByTemplate(TEMPLATE_LAND_VILLAGE)
         if (
             (await mergeLand("villages", CONFIG_LAND_MERGE_MSOURCE_BASE_FEE * CONFIG_LAND_VILLAGE_FEE_MULTIPLIER, LAND_VILLAGE_NAME, villages)) ==
             false
@@ -250,13 +398,13 @@ async function mergeLands() {
             break
         }
         await delay(5000)
-        let towns = await getLandsByTemplate(TEMPLATE_LAND_TOWN)
+        let towns = await getNftsByTemplate(TEMPLATE_LAND_TOWN)
         if ((await mergeLand("towns", CONFIG_LAND_MERGE_MSOURCE_BASE_FEE * CONFIG_LAND_TOWN_FEE_MULTIPLIER, LAND_TOWN_NAME, towns)) == false) {
             console.log(`Skipping land merge due to merge failures. Will try again next cycle`)
             break
         }
         await delay(5000)
-        let cities = await getLandsByTemplate(TEMPLATE_LAND_CITY)
+        let cities = await getNftsByTemplate(TEMPLATE_LAND_CITY)
         if ((await mergeLand("cities", CONFIG_LAND_MERGE_MSOURCE_BASE_FEE * CONFIG_LAND_CITY_FEE_MULTIPLIER, LAND_CITY_NAME, cities)) == false) {
             console.log(`Skipping land merge due to merge failures. Will try again next cycle`)
             break
@@ -292,7 +440,7 @@ async function mergeLand(displayName, fee, landName, landNfts) {
         landsToMerge.push(landNfts[landCounter])
         landCounter++
 
-        if (await merge(landName, landsToMerge, fee)) {
+        if (await contract_merge(landName, landsToMerge, fee)) {
             msourceBalance -= fee
             console.log("Waiting on blockchain transaction confirmations")
             await delay(5000)
@@ -334,7 +482,7 @@ async function rechargeAssets() {
                     tmpRoyalSealsUsed++
                 }
 
-                if (await rechargeBaron(barons.needsCharging[i], royalSealsForRecharge)) {
+                if (await contract_rechargeBaron(barons.needsCharging[i], royalSealsForRecharge)) {
                     royalSealsUsed += tmpRoyalSealsUsed
                     rechargeCount++
                 } else {
@@ -361,7 +509,7 @@ async function rechargeAssets() {
                     tmpRoyalSealsUsed++
                 }
 
-                if (await rechargeCastle(castles.needsCharging[i], royalSealsForRecharge)) {
+                if (await contract_rechargeCastle(castles.needsCharging[i], royalSealsForRecharge)) {
                     royalSealsUsed += tmpRoyalSealsUsed
                     rechargeCount++
                 } else {
@@ -393,7 +541,7 @@ async function rechargeAssets() {
                     tmpRoyalSealsUsed++
                 }
 
-                if (await rechargeLumberjack(lumberjacks.needsCharging[i], royalSealsForRecharge)) {
+                if (await contract_rechargeLumberjack(lumberjacks.needsCharging[i], royalSealsForRecharge)) {
                     msourceBalance -= CONFIG_RECHARGE_LUMBERJACK_MSOURCE_FEE
                     royalSealsUsed += tmpRoyalSealsUsed
                     rechargeCount++
@@ -424,7 +572,7 @@ async function rechargeAssets() {
                     tmpRoyalSealsUsed++
                 }
 
-                if (await rechargeCarpenter(carpenters.needsCharging[i], royalSealsForRecharge)) {
+                if (await contract_rechargeCarpenter(carpenters.needsCharging[i], royalSealsForRecharge)) {
                     lumberBalance -= CONFIG_RECHARGE_CARPENTER_LUMBER_FEE
                     royalSealsUsed += tmpRoyalSealsUsed
                     rechargeCount++
@@ -452,7 +600,7 @@ async function rechargeAssets() {
                     tmpRoyalSealsUsed++
                 }
 
-                if (await rechargeMiner(miners.needsCharging[i], royalSealsForRecharge)) {
+                if (await contract_rechargeMiner(miners.needsCharging[i], royalSealsForRecharge)) {
                     lumberBalance -= CONFIG_RECHARGE_MINER_LUMBER_FEE
                     royalSealsUsed += tmpRoyalSealsUsed
                     rechargeCount++
@@ -482,7 +630,7 @@ async function mint(eligibleToMint, recipeId, contract) {
                     assets.push(eligibleToMint[i])
                 }
 
-                if (!(await craft(assets, recipeId, contract))) return false
+                if (!(await contract_craft(assets, recipeId, contract))) return false
 
                 counter += MINT_MAX
             }
@@ -497,7 +645,13 @@ async function mint(eligibleToMint, recipeId, contract) {
     }
 }
 
-async function rechargeBaron(baronId, royalSeals) {
+/********************************************
+ *
+ *          CONTRACT CALLS
+ *
+ * ******************************************/
+
+async function contract_rechargeBaron(baronId, royalSeals) {
     try {
         let rechargeAction = {
             actions: [
@@ -525,13 +679,13 @@ async function rechargeBaron(baronId, royalSeals) {
 
         return true
     } catch (err) {
-        console.log(`rechargeBaron: Error - ${err}`)
+        console.log(`contract_rechargeBaron: Error - ${err}`)
         await handleError(err)
         return false
     }
 }
 
-async function rechargeCastle(castleId, royalSeals) {
+async function contract_rechargeCastle(castleId, royalSeals) {
     try {
         let rechargeAction = {
             actions: [
@@ -559,13 +713,13 @@ async function rechargeCastle(castleId, royalSeals) {
 
         return true
     } catch (err) {
-        console.log(`rechargeCastle: Error - ${err}`)
+        console.log(`contract_rechargeCastle: Error - ${err}`)
         await handleError(err)
         return false
     }
 }
 
-async function rechargeCarpenter(carpenterId, royalSeals) {
+async function contract_rechargeCarpenter(carpenterId, royalSeals) {
     try {
         let rechargeAction = {
             actions: [
@@ -609,13 +763,13 @@ async function rechargeCarpenter(carpenterId, royalSeals) {
 
         return true
     } catch (err) {
-        console.log(`rechargeCarpenter: Error - ${err}`)
+        console.log(`contract_rechargeCarpenter: Error - ${err}`)
         await handleError(err)
         return false
     }
 }
 
-async function rechargeMiner(minerId, royalSeals) {
+async function contract_rechargeMiner(minerId, royalSeals) {
     try {
         let rechargeAction = {
             actions: [
@@ -659,13 +813,13 @@ async function rechargeMiner(minerId, royalSeals) {
 
         return true
     } catch (err) {
-        console.log(`rechargeMiner: Error - ${err}`)
+        console.log(`contract_rechargeMiner: Error - ${err}`)
         await handleError(err)
         return false
     }
 }
 
-async function rechargeLumberjack(lumberjackId, royalSeals) {
+async function contract_rechargeLumberjack(lumberjackId, royalSeals) {
     try {
         let rechargeAction = {
             actions: [
@@ -709,13 +863,13 @@ async function rechargeLumberjack(lumberjackId, royalSeals) {
 
         return true
     } catch (err) {
-        console.log(`rechargeLumberjack: Error - ${err}`)
+        console.log(`contract_rechargeLumberjack: Error - ${err}`)
         await handleError(err)
         return false
     }
 }
 
-async function claimMSource() {
+async function contract_claimMSource() {
     try {
         let claimAction = {
             actions: [
@@ -739,13 +893,13 @@ async function claimMSource() {
         console.log("Claimed MSOURCE successfully!")
         return true
     } catch (err) {
-        console.log(`claimMSource: Error - ${err}`)
+        console.log(`contract_claimMSource: Error - ${err}`)
         await handleError(err)
         return false
     }
 }
 
-async function craft(assets, recipeId, contract) {
+async function contract_craft(assets, recipeId, contract) {
     try {
         let actionsArray = []
 
@@ -776,13 +930,13 @@ async function craft(assets, recipeId, contract) {
 
         return true
     } catch (err) {
-        console.log(`craft: Error - ${err}`)
+        console.log(`contract_craft: Error - ${err}`)
         await handleError(err)
         return false
     }
 }
 
-async function merge(landType, landAssets, fee) {
+async function contract_merge(landType, landAssets, fee) {
     try {
         let mergeAction = {
             actions: [
@@ -826,13 +980,13 @@ async function merge(landType, landAssets, fee) {
 
         return true
     } catch (err) {
-        console.log(`merge: Error - ${err}`)
+        console.log(`contract_merge: Error - ${err}`)
         await handleError(err)
         return false
     }
 }
 
-async function free2playBanquetClaim() {
+async function contract_free2playBanquetClaim() {
     try {
         let banquetClaimAction = {
             actions: [
@@ -881,7 +1035,7 @@ async function free2playBanquetClaim() {
     }
 }
 
-async function free2playPowerClaim() {
+async function contract_free2playPowerClaim() {
     try {
         let powerClaimAction = {
             actions: [
@@ -913,9 +1067,9 @@ async function free2playPowerClaim() {
     }
 }
 
-async function claimLand() {
+async function contract_createSeafarersPack(maps) {
     try {
-        let claimLandAction = {
+        let createSeafarersPackAction = {
             actions: [
                 {
                     account: ACCOUNT_MSOURCETOKEN,
@@ -929,7 +1083,57 @@ async function claimLand() {
                     data: {
                         from: CONFIG_WAX_ADDRESS,
                         to: ACCOUNT_MSOURCEGUILD,
-                        quantity: `${CONFIG_LAND_CLAIM_2PACK_FINE_WOOD_FEE} ${TOKEN_FINEWOOD}`,
+                        quantity: `${CONFIG_SEAFARERS_PACK_FINE_WOOD_FEE} ${TOKEN_FINEWOOD}`,
+                        memo: "deposit",
+                    },
+                },
+                {
+                    account: "atomicassets",
+                    name: "transfer",
+                    authorization: [
+                        {
+                            actor: CONFIG_WAX_ADDRESS,
+                            permission: "active",
+                        },
+                    ],
+                    data: {
+                        from: CONFIG_WAX_ADDRESS,
+                        to: ACCOUNT_MSOURCEGUILD,
+                        asset_ids: maps,
+                        memo: `craft:${TEMPLATE_SEAFARERS_PACK}`,
+                    },
+                },
+            ],
+        }
+
+        await api.transact(createSeafarersPackAction, tapos)
+        console.log("Seafarers pack created!")
+
+        return true
+    } catch (err) {
+        console.log(`contract_createSeafarersPack: Error - ${err}`)
+        await handleError(err)
+        return false
+    }
+}
+
+async function contract_createExplorersPack() {
+    try {
+        let createExplorersPackAction = {
+            actions: [
+                {
+                    account: ACCOUNT_MSOURCETOKEN,
+                    name: "transfer",
+                    authorization: [
+                        {
+                            actor: CONFIG_WAX_ADDRESS,
+                            permission: "active",
+                        },
+                    ],
+                    data: {
+                        from: CONFIG_WAX_ADDRESS,
+                        to: ACCOUNT_MSOURCEGUILD,
+                        quantity: `${CONFIG_EXPLORERS_PACK_FINE_WOOD_FEE} ${TOKEN_FINEWOOD}`,
                         memo: "deposit",
                     },
                 },
@@ -944,22 +1148,154 @@ async function claimLand() {
                     ],
                     data: {
                         owner: CONFIG_WAX_ADDRESS,
-                        pack_to_craft_template_id: TEMPLATE_PACK_2LANDS,
+                        pack_to_craft_template_id: TEMPLATE_EXPLORERS_PACK,
                     },
                 },
             ],
         }
 
-        await api.transact(claimLandAction, tapos)
-        console.log("Land claimed successful!")
+        await api.transact(createExplorersPackAction, tapos)
+        console.log("Explorer pack created!")
 
         return true
     } catch (err) {
-        console.log(`claimLand: Error - ${err}`)
+        console.log(`contract_createExplorersPack: Error - ${err}`)
         await handleError(err)
         return false
     }
 }
+
+async function contract_claimLandPack(packId) {
+    try {
+        let claimLandPackAction = {
+            actions: [
+                {
+                    account: ACCOUNT_MSOURCEGUILD,
+                    name: "claimcraft",
+                    authorization: [
+                        {
+                            actor: CONFIG_WAX_ADDRESS,
+                            permission: "active",
+                        },
+                    ],
+                    data: {
+                        owner: CONFIG_WAX_ADDRESS,
+                        craft_id: packId,
+                    },
+                },
+            ],
+        }
+
+        await api.transact(claimLandPackAction, tapos)
+        console.log("Land pack claimed successfully!")
+        return true
+    } catch (err) {
+        await handleError(err)
+        return false
+    }
+}
+
+async function contract_unboxLandPack(packId) {
+    try {
+        let unboxLandPackAction = {
+            actions: [
+                {
+                    account: "atomicassets",
+                    name: "transfer",
+                    authorization: [
+                        {
+                            actor: CONFIG_WAX_ADDRESS,
+                            permission: "active",
+                        },
+                    ],
+                    data: {
+                        from: CONFIG_WAX_ADDRESS,
+                        to: "atomicpacksx",
+                        asset_ids: [packId],
+                        memo: "unbox",
+                    },
+                },
+            ],
+        }
+
+        await api.transact(unboxLandPackAction, tapos)
+        console.log("Land pack unboxed successfully!")
+        return true
+    } catch (err) {
+        await handleError(err)
+        return false
+    }
+}
+
+async function contract_revealLandPack(packId) {
+    try {
+        let revealLandPackAction = {
+            actions: [
+                {
+                    account: "atomicpacksx",
+                    name: "claimunboxed",
+                    authorization: [
+                        {
+                            actor: CONFIG_WAX_ADDRESS,
+                            permission: "active",
+                        },
+                    ],
+                    data: {
+                        pack_asset_id: packId,
+                        origin_roll_ids: [0, 1],
+                    },
+                },
+            ],
+        }
+
+        await api.transact(revealLandPackAction, tapos)
+        console.log("Land pack revealed successfully!")
+        return true
+    } catch (err) {
+        await handleError(err)
+        return false
+    }
+}
+
+async function contract_blendSeafarerMapFragments(mapFragments) {
+    try {
+        let blendSeafarerMapFragmentsAction = {
+            actions: [
+                {
+                    account: "atomicassets",
+                    name: "transfer",
+                    authorization: [
+                        {
+                            actor: CONFIG_WAX_ADDRESS,
+                            permission: "active",
+                        },
+                    ],
+                    data: {
+                        from: CONFIG_WAX_ADDRESS,
+                        to: "blend.nefty",
+                        asset_ids: mapFragments,
+                        memo: "blend:8239",
+                    },
+                },
+            ],
+        }
+
+        await api.transact(blendSeafarerMapFragmentsAction, tapos)
+        console.log("Map fragments blend successful!")
+
+        return true
+    } catch (err) {
+        console.log(`contract_blendSeafarerMapFragments: Error - ${err}`)
+        await handleError(err)
+        return false
+    }
+}
+
+/********************************************
+ *
+ *          FETCHES
+ *
+ * ******************************************/
 
 async function getCraftByTemplate(templateId) {
     let eligibleToMint = []
@@ -1006,7 +1342,7 @@ async function getCraftByTemplate(templateId) {
             page++
 
             if (nftItems.length < 40) keepLooking = false
-            else await delay(100)
+            else await delay(500)
         }
     } catch (err) {
         console.log(`getCraftByTemplate: Error - ${err}`)
@@ -1020,8 +1356,8 @@ async function getCraftByTemplate(templateId) {
     return { eligibleToMint, uneligibleToMint, needsCharging }
 }
 
-async function getLandsByTemplate(templateId) {
-    let land = []
+async function getNftsByTemplate(templateId) {
+    let nfts = []
     let page = 1
     let keepLooking = true
 
@@ -1042,22 +1378,22 @@ async function getLandsByTemplate(templateId) {
             if (nftItems.data.length == 0) break
 
             for (let j = 0; j < nftItems.data.length; j++) {
-                land.push(nftItems.data[j].asset_id)
+                nfts.push(nftItems.data[j].asset_id)
             }
 
             page++
 
             if (nftItems.length < 40) keepLooking = false
-            else await delay(100)
+            else await delay(500)
         }
     } catch (err) {
-        console.log(`getLandsByTemplate: Error - ${err}`)
+        console.log(`getNftsByTemplate: Error - ${err}`)
         await handleError(err)
 
-        land = []
+        nfts = []
     }
 
-    return land
+    return nfts
 }
 
 async function getRoyalSeals() {
@@ -1088,7 +1424,7 @@ async function getRoyalSeals() {
             page++
 
             if (nftItems.length < 40) keepLooking = false
-            else await delay(100)
+            else await delay(500)
         }
 
         return royalSeals
@@ -1098,6 +1434,12 @@ async function getRoyalSeals() {
         return []
     }
 }
+
+/********************************************
+ *
+ *          TOKEN BALANCES
+ *
+ * ******************************************/
 
 async function getMSourceBalance() {
     try {
@@ -1156,37 +1498,11 @@ async function getWaxBalance() {
     }
 }
 
-async function stakeCPU(amount) {
-    try {
-        let stakeCPUAction = {
-            actions: [
-                {
-                    account: "eosio",
-                    name: "delegatebw",
-                    authorization: [
-                        {
-                            actor: CONFIG_WAX_ADDRESS,
-                            permission: "active",
-                        },
-                    ],
-                    data: {
-                        from: CONFIG_WAX_ADDRESS,
-                        receiver: CONFIG_WAX_ADDRESS,
-                        stake_net_quantity: "0.00000000 WAX",
-                        stake_cpu_quantity: Number(amount).toFixed(8) + " WAX",
-                        transfer: false,
-                    },
-                },
-            ],
-        }
-
-        await api.transact(stakeCPUAction, tapos)
-    } catch (err) {
-        console.log(`stakeCPU: Error - ${err}`)
-        await handleError(err)
-    }
-}
-
+/********************************************
+ *
+ *          Misc
+ *
+ * ******************************************/
 async function handleError(err) {
     if (err.toString().toLowerCase().indexOf("billing") > -1) {
         console.log(
