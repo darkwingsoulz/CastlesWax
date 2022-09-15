@@ -32,6 +32,7 @@ const CONFIG_FREE_BANQUET_CLAIM_FEE = process.env.CONFIG_FREE_BANQUET_CLAIM_FEE
 const CONFIG_EXPLORERS_PACK_FINE_WOOD_FEE = process.env.CONFIG_EXPLORERS_PACK_FINE_WOOD_FEE
 const CONFIG_SEAFARERS_PACK_FINE_WOOD_FEE = process.env.CONFIG_SEAFARERS_PACK_FINE_WOOD_FEE
 const CONFIG_SEAFARERS_PACK_SEAFARER_MAP_FEE = process.env.CONFIG_SEAFARERS_PACK_SEAFARER_MAP_FEE
+const CONFIG_USE_ATOMIC_ASSETS_BACKUP_URL = process.env.CONFIG_USE_ATOMIC_ASSETS_BACKUP_URL.toLowerCase() == "true"
 
 const rpc = new JsonRpc("https://wax.greymass.com", { fetch })
 const signatureProvider = new JsSignatureProvider([CONFIG_WAX_PRIVATE_KEY])
@@ -108,6 +109,10 @@ const BILLING_ERROR_WAIT = 60000
 
 //needed to give enough time for blockchain transactions to be confirmed
 const TXN_WAIT_TIME_MS = 20000
+
+const ATOMIC_ASSETS_URL = CONFIG_USE_ATOMIC_ASSETS_BACKUP_URL
+    ? "https://wax.eosusa.io/atomicassets/v1/assets"
+    : "https://wax.api.atomicassets.io/atomicassets/v1/assets"
 
 async function main() {
     let msourceClaimCheck = 0
@@ -1307,7 +1312,8 @@ async function getCraftByTemplate(templateId) {
     try {
         while (keepLooking) {
             let nftItems = await fetch(
-                "https://wax.api.atomicassets.io/atomicassets/v1/assets?page=" +
+                ATOMIC_ASSETS_URL +
+                    "?page=" +
                     page +
                     "&limit=40&owner=" +
                     CONFIG_WAX_ADDRESS +
@@ -1364,7 +1370,8 @@ async function getNftsByTemplate(templateId) {
     try {
         while (keepLooking) {
             let nftItems = await fetch(
-                "https://wax.api.atomicassets.io/atomicassets/v1/assets?page=" +
+                ATOMIC_ASSETS_URL +
+                    "?page=" +
                     page +
                     "&limit=40&owner=" +
                     CONFIG_WAX_ADDRESS +
@@ -1404,7 +1411,8 @@ async function getRoyalSeals() {
     try {
         while (keepLooking) {
             let nftItems = await fetch(
-                "https://wax.api.atomicassets.io/atomicassets/v1/assets?page=" +
+                ATOMIC_ASSETS_URL +
+                    "?page=" +
                     page +
                     "&limit=40&owner=" +
                     CONFIG_WAX_ADDRESS +
