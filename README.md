@@ -26,8 +26,10 @@ This script is intended to be run via command line and not through a browser
 - Recharge Barons, Castles, Lumberjacks, Carpenters, Miners
 - Mint for Barons, Castles, Lumberjacks, Carpenters, Miners
 - Auto claim land from fine wood
+- Unbox and reveal land claims
+- Auto merge partial maps
 - Auto claim MSOURCE
-- Runs in indefinite loop until you quit the program
+- Runs in an indefinite loop until you quit the program
 - Merge up all available land types (farms, ranches, villages, towns, cities)
 - Free2Play banquet/power claims
 
