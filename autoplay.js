@@ -1257,6 +1257,7 @@ async function contract_revealLandPack(packId) {
         console.log("Land pack revealed successfully!")
         return true
     } catch (err) {
+        console.log("AN ERROR OCCURRED REVEALING LAND PACK " + err)
         await handleError(err)
         return false
     }
