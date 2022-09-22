@@ -1523,7 +1523,7 @@ async function handleError(err) {
             "Waiting 60 seconds due to billing errors and to prevent spamming failures.  If this occurs often, consider staking more WAX for CPU on the account."
         )
         await delay(BILLING_ERROR_WAIT)
-    } else console.log(err)
+    }
 }
 
 //run program
