@@ -209,7 +209,13 @@ async function revealLandPacks() {
             key_type: "name",
         })
         for (let i = 0; i < getReveals.rows.length; i++) {
-            let reveal = await contract_revealLandPack(getReveals.rows[i].pack_asset_id)
+            let packId = getReveals.rows[i].pack_id
+            let rollIds = []
+
+            if (Number(packId) == 7636) rollIds = [2, 3, 4]
+            else rollIds = [0, 1]
+
+            let reveal = await contract_revealLandPack(getReveals.rows[i].pack_asset_id, rollIds)
             if (!reveal) {
                 console.log("Error occurred revealing land pack, will try again later.")
                 break
@@ -1232,7 +1238,7 @@ async function contract_unboxLandPack(packId) {
     }
 }
 
-async function contract_revealLandPack(packId) {
+async function contract_revealLandPack(packId, rollIds) {
     try {
         let revealLandPackAction = {
             actions: [
@@ -1247,7 +1253,7 @@ async function contract_revealLandPack(packId) {
                     ],
                     data: {
                         pack_asset_id: packId,
-                        origin_roll_ids: [0, 1],
+                        origin_roll_ids: rollIds,
                     },
                 },
             ],
@@ -1257,7 +1263,6 @@ async function contract_revealLandPack(packId) {
         console.log("Land pack revealed successfully!")
         return true
     } catch (err) {
-        console.log("AN ERROR OCCURRED REVEALING LAND PACK " + err)
         await handleError(err)
         return false
     }
@@ -1518,7 +1523,7 @@ async function handleError(err) {
             "Waiting 60 seconds due to billing errors and to prevent spamming failures.  If this occurs often, consider staking more WAX for CPU on the account."
         )
         await delay(BILLING_ERROR_WAIT)
-    }
+    } else console.log(err)
 }
 
 //run program
