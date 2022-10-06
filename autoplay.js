@@ -132,15 +132,11 @@ async function main() {
             if (msourceClaimCheck == 0) {
                 //claiming MSOURCE
                 console.log("Claiming MSOURCE...")
-                if (await contract_claimMSource()) {
-                    //wait after claiming so balance can update
-                    console.log("Waiting on blockchain transaction confirmations")
-                    await delay(TXN_WAIT_TIME_MS)
-                }
+                await contract_claimMSource()
             }
             msourceClaimCheck++
 
-            if (msourceClaimCheck > 10) msourceClaimCheck = 0
+            if (msourceClaimCheck > 50) msourceClaimCheck = 0
 
             console.log("Recharging assets...")
             let rechargeCount = await rechargeAssets()
