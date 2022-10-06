@@ -120,8 +120,10 @@ async function main() {
     // constantly runs the program on a configurable timed loop
     while (true) {
         try {
+            console.log("Retrieving wax balance")
             let waxBalance = await getWaxBalance()
 
+            console.log("F2P calls")
             if (waxBalance > Number(CONFIG_FREE_BANQUET_CLAIM_FEE)) {
                 await contract_free2playBanquetClaim()
             }
@@ -140,6 +142,7 @@ async function main() {
 
             if (msourceClaimCheck > 10) msourceClaimCheck = 0
 
+            console.log("Recharging assets...")
             let rechargeCount = await rechargeAssets()
 
             if (rechargeCount > 0) {
@@ -147,12 +150,14 @@ async function main() {
                 await delay(TXN_WAIT_TIME_MS)
             }
 
+            console.log("Minting assets...")
             let didMint = await mintAssets()
             if (didMint) {
                 console.log("Waiting on blockchain transaction confirmations")
                 await delay(TXN_WAIT_TIME_MS)
             }
 
+            console.log("Recharging assets again...")
             //check for assets needing a recharge after mint
             rechargeCount = await rechargeAssets()
             if (rechargeCount > 0) {
@@ -160,8 +165,10 @@ async function main() {
                 await delay(TXN_WAIT_TIME_MS)
             }
 
+            console.log("Merging lands...")
             await mergeLands()
 
+            console.log("Crafting maps...")
             let mapsCreated = await craftMaps()
             if (mapsCreated) {
                 console.log("Waiting on blockchain transaction confirmations")
@@ -173,14 +180,17 @@ async function main() {
                 await craftLandPacks()
             }
 
+            console.log("Claiming packs...")
             if (await claimAllPacks()) {
                 console.log("Waiting on blockchain transaction confirmations")
                 await delay(TXN_WAIT_TIME_MS)
             }
 
+            console.log("Unboxing packs...")
             //unboxing packs
             await unboxLandPacks()
 
+            console.log("Revealing packs...")
             //reveal packs
             await revealLandPacks()
         } catch (err) {
@@ -190,6 +200,7 @@ async function main() {
 
         console.log(`Waiting ${CONFIG_LOOP_TIME_IN_MINUTES} minute(s) before next cycle.`)
         await delay(Number(CONFIG_LOOP_TIME_IN_MINUTES) * 60 * 1000)
+        console.log(`Resuming cycle.`)
     }
 }
 
@@ -283,7 +294,6 @@ async function claimAllPacks() {
 }
 
 async function craftMaps() {
-    console.log("Processing map fragments...")
     let seafarerMapFragments = await getNftsByTemplate(TEMPLATE_MAT_SEAFARER_MAP_FRAGMENT)
     let fragmentCounter = 0
     let mergeCount = 0
@@ -385,7 +395,6 @@ async function mintAssets() {
 }
 
 async function mergeLands() {
-    console.log("Processing land merges...")
     let checkLandMerge = false
     do {
         let farms = await getNftsByTemplate(TEMPLATE_LAND_FARM)
