@@ -23,16 +23,28 @@ const CONFIG_RECHARGE_LUMBERJACK_ROYAL_SEAL_FEE = process.env.CONFIG_RECHARGE_LU
 const CONFIG_RECHARGE_LUMBERJACK_MSOURCE_FEE = process.env.CONFIG_RECHARGE_LUMBERJACK_MSOURCE_FEE
 const CONFIG_RECHARGE_MINER_LUMBER_FEE = process.env.CONFIG_RECHARGE_MINER_LUMBER_FEE
 const CONFIG_RECHARGE_MINER_ROYAL_SEAL_FEE = process.env.CONFIG_RECHARGE_MINER_ROYAL_SEAL_FEE
+
+const CONFIG_LAND_MERGE_FARM_ENABLED = process.env.CONFIG_LAND_MERGE_FARM_ENABLED.toLowerCase() == "true"
+const CONFIG_LAND_MERGE_RANCH_ENABLED = process.env.CONFIG_LAND_MERGE_RANCH_ENABLED.toLowerCase() == "true"
+const CONFIG_LAND_MERGE_VILLAGE_ENABLED = process.env.CONFIG_LAND_MERGE_VILLAGE_ENABLED.toLowerCase() == "true"
+const CONFIG_LAND_MERGE_TOWN_ENABLED = process.env.CONFIG_LAND_MERGE_TOWN_ENABLED.toLowerCase() == "true"
+const CONFIG_LAND_MERGE_CITY_ENABLED = process.env.CONFIG_LAND_MERGE_CITY_ENABLED.toLowerCase() == "true"
+
 const CONFIG_LAND_FARM_FEE_MULTIPLIER = process.env.CONFIG_LAND_FARM_FEE_MULTIPLIER
 const CONFIG_LAND_RANCH_FEE_MULTIPLIER = process.env.CONFIG_LAND_RANCH_FEE_MULTIPLIER
 const CONFIG_LAND_VILLAGE_FEE_MULTIPLIER = process.env.CONFIG_LAND_VILLAGE_FEE_MULTIPLIER
 const CONFIG_LAND_TOWN_FEE_MULTIPLIER = process.env.CONFIG_LAND_TOWN_FEE_MULTIPLIER
 const CONFIG_LAND_CITY_FEE_MULTIPLIER = process.env.CONFIG_LAND_CITY_FEE_MULTIPLIER
 const CONFIG_FREE_BANQUET_CLAIM_FEE = process.env.CONFIG_FREE_BANQUET_CLAIM_FEE
+const CONFIG_EXPLORERS_PACK_UNBOX_ENABLED = process.env.CONFIG_EXPLORERS_PACK_UNBOX_ENABLED.toLowerCase() == "true"
 const CONFIG_EXPLORERS_PACK_FINE_WOOD_FEE = process.env.CONFIG_EXPLORERS_PACK_FINE_WOOD_FEE
+const CONFIG_SEAFARERS_PACK_UNBOX_ENABLED = process.env.CONFIG_SEAFARERS_PACK_UNBOX_ENABLED.toLowerCase() == "true"
 const CONFIG_SEAFARERS_PACK_FINE_WOOD_FEE = process.env.CONFIG_SEAFARERS_PACK_FINE_WOOD_FEE
 const CONFIG_SEAFARERS_PACK_SEAFARER_MAP_FEE = process.env.CONFIG_SEAFARERS_PACK_SEAFARER_MAP_FEE
 const CONFIG_USE_ATOMIC_ASSETS_BACKUP_URL = process.env.CONFIG_USE_ATOMIC_ASSETS_BACKUP_URL.toLowerCase() == "true"
+const CONFIG_MSOURCE_CLAIM_WAIT_CYCLES = process.env.CONFIG_MSOURCE_CLAIM_WAIT_CYCLES || 0
+const CONFIG_LANDPACK_CLAIM_AND_OPEN_WAIT_CYCLES = process.env.CONFIG_LANDPACK_CLAIM_AND_OPEN_WAIT_CYCLES || 0
+const CONFIG_RECHARGE_WAIT_CYCLES = process.env.CONFIG_RECHARGE_WAIT_CYCLES || 0
 
 const rpc = new JsonRpc("https://wax.greymass.com", { fetch })
 const signatureProvider = new JsSignatureProvider([CONFIG_WAX_PRIVATE_KEY])
@@ -115,7 +127,9 @@ const ATOMIC_ASSETS_URL = CONFIG_USE_ATOMIC_ASSETS_BACKUP_URL
     : "https://wax.api.atomicassets.io/atomicassets/v1/assets"
 
 async function main() {
-    let msourceClaimCheck = 0
+    let msourceClaimCycleCount = 0
+    let rechargeCycleCount = 0
+    let landPackClaimAndOpenCycleCount = 0
 
     // constantly runs the program on a configurable timed loop
     while (true) {
@@ -129,22 +143,27 @@ async function main() {
             }
             await contract_free2playPowerClaim()
 
-            if (msourceClaimCheck == 0) {
+            if (msourceClaimCycleCount == 0) {
                 //claiming MSOURCE
                 console.log("Claiming MSOURCE...")
                 await contract_claimMSource()
             }
-            msourceClaimCheck++
+            msourceClaimCycleCount++
 
-            if (msourceClaimCheck > 50) msourceClaimCheck = 0
+            if (msourceClaimCycleCount > CONFIG_MSOURCE_CLAIM_WAIT_CYCLES) msourceClaimCycleCount = 0
 
-            console.log("Recharging assets...")
-            let rechargeCount = await rechargeAssets()
+            if (rechargeCycleCount == 0) {
+                console.log("Recharging assets...")
+                let rechargeCount = await rechargeAssets()
 
-            if (rechargeCount > 0) {
-                console.log("Waiting on blockchain transaction confirmations")
-                await delay(TXN_WAIT_TIME_MS)
+                if (rechargeCount > 0) {
+                    console.log("Waiting on blockchain transaction confirmations")
+                    await delay(TXN_WAIT_TIME_MS)
+                }
             }
+            rechargeCycleCount++
+
+            if (rechargeCycleCount > CONFIG_RECHARGE_WAIT_CYCLES) rechargeCycleCount = 0
 
             console.log("Minting assets...")
             let didMint = await mintAssets()
@@ -153,8 +172,16 @@ async function main() {
                 await delay(TXN_WAIT_TIME_MS)
             }
 
-            console.log("Merging lands...")
-            await mergeLands()
+            if (
+                CONFIG_LAND_MERGE_FARM_ENABLED ||
+                CONFIG_LAND_MERGE_RANCH_ENABLED ||
+                CONFIG_LAND_MERGE_VILLAGE_ENABLED ||
+                CONFIG_LAND_MERGE_TOWN_ENABLED ||
+                CONFIG_LAND_MERGE_CITY_ENABLED
+            ) {
+                console.log("Merging lands...")
+                await mergeLands()
+            }
 
             console.log("Crafting maps...")
             let mapsCreated = await craftMaps()
@@ -168,19 +195,26 @@ async function main() {
                 await craftLandPacks()
             }
 
-            console.log("Claiming packs...")
-            if (await claimAllPacks()) {
-                console.log("Waiting on blockchain transaction confirmations")
-                await delay(TXN_WAIT_TIME_MS)
+            if (landPackClaimAndOpenCycleCount == 0) {
+                console.log("Claiming packs...")
+                if (await claimAllPacks()) {
+                    console.log("Waiting on blockchain transaction confirmations")
+                    await delay(TXN_WAIT_TIME_MS)
+                }
+
+                if (CONFIG_EXPLORERS_PACK_UNBOX_ENABLED || CONFIG_SEAFARERS_PACK_UNBOX_ENABLED) {
+                    console.log("Unboxing packs...")
+                    //unboxing packs
+                    await unboxLandPacks()
+
+                    console.log("Revealing packs...")
+                    //reveal packs
+                    await revealLandPacks()
+                }
             }
+            landPackClaimAndOpenCycleCount++
 
-            console.log("Unboxing packs...")
-            //unboxing packs
-            await unboxLandPacks()
-
-            console.log("Revealing packs...")
-            //reveal packs
-            await revealLandPacks()
+            if (landPackClaimAndOpenCycleCount > CONFIG_LANDPACK_CLAIM_AND_OPEN_WAIT_CYCLES) landPackClaimAndOpenCycleCount = 0
         } catch (err) {
             console.log(`Main Loop: Error - ${err}`)
             await handleError(err)
@@ -228,20 +262,24 @@ async function revealLandPacks() {
 }
 
 async function unboxLandPacks() {
-    console.log("Unboxing available explorer packs...")
+    if (CONFIG_EXPLORERS_PACK_UNBOX_ENABLED) {
+        console.log("Unboxing available explorer packs...")
 
-    let explorerPacks = await getNftsByTemplate(TEMPLATE_EXPLORERS_PACK)
+        let explorerPacks = await getNftsByTemplate(TEMPLATE_EXPLORERS_PACK)
 
-    for (let i = 0; i < explorerPacks.length; i++) {
-        await contract_unboxLandPack(explorerPacks[i])
+        for (let i = 0; i < explorerPacks.length; i++) {
+            await contract_unboxLandPack(explorerPacks[i])
+        }
     }
 
-    console.log("Unboxing available seafarer packs...")
+    if (CONFIG_SEAFARERS_PACK_UNBOX_ENABLED) {
+        console.log("Unboxing available seafarer packs...")
 
-    let seafarerPacks = await getNftsByTemplate(TEMPLATE_SEAFARERS_PACK)
+        let seafarerPacks = await getNftsByTemplate(TEMPLATE_SEAFARERS_PACK)
 
-    for (let i = 0; i < seafarerPacks.length; i++) {
-        await contract_unboxLandPack(seafarerPacks[i])
+        for (let i = 0; i < seafarerPacks.length; i++) {
+            await contract_unboxLandPack(seafarerPacks[i])
+        }
     }
 }
 
@@ -383,41 +421,53 @@ async function mintAssets() {
 }
 
 async function mergeLands() {
+    let farms, ranches, villages, towns, cities
     let checkLandMerge = false
     do {
-        let farms = await getNftsByTemplate(TEMPLATE_LAND_FARM)
-        if ((await mergeLand("farms", CONFIG_LAND_MERGE_MSOURCE_BASE_FEE * CONFIG_LAND_FARM_FEE_MULTIPLIER, LAND_FARM_NAME, farms)) == false) {
-            console.log(`Skipping land merge due to merge failures. Will try again next cycle`)
-            break
+        if (CONFIG_LAND_MERGE_FARM_ENABLED) {
+            farms = await getNftsByTemplate(TEMPLATE_LAND_FARM)
+            if ((await mergeLand("farms", CONFIG_LAND_MERGE_MSOURCE_BASE_FEE * CONFIG_LAND_FARM_FEE_MULTIPLIER, LAND_FARM_NAME, farms)) == false)
+                console.log(`An error occured merging farms. Will try again next cycle`)
+
+            await delay(5000)
         }
-        await delay(5000)
-        let ranches = await getNftsByTemplate(TEMPLATE_LAND_RANCH)
-        if ((await mergeLand("ranches", CONFIG_LAND_MERGE_MSOURCE_BASE_FEE * CONFIG_LAND_RANCH_FEE_MULTIPLIER, LAND_RANCH_NAME, ranches)) == false) {
-            console.log(`Skipping land merge due to merge failures. Will try again next cycle`)
-            break
+
+        if (CONFIG_LAND_MERGE_RANCH_ENABLED) {
+            ranches = await getNftsByTemplate(TEMPLATE_LAND_RANCH)
+            if (
+                (await mergeLand("ranches", CONFIG_LAND_MERGE_MSOURCE_BASE_FEE * CONFIG_LAND_RANCH_FEE_MULTIPLIER, LAND_RANCH_NAME, ranches)) == false
+            )
+                console.log(`An error occured merging ranches. Will try again next cycle`)
+
+            await delay(5000)
         }
-        await delay(5000)
-        let villages = await getNftsByTemplate(TEMPLATE_LAND_VILLAGE)
-        if (
-            (await mergeLand("villages", CONFIG_LAND_MERGE_MSOURCE_BASE_FEE * CONFIG_LAND_VILLAGE_FEE_MULTIPLIER, LAND_VILLAGE_NAME, villages)) ==
-            false
-        ) {
-            console.log(`Skipping land merge due to merge failures. Will try again next cycle`)
-            break
+
+        if (CONFIG_LAND_MERGE_VILLAGE_ENABLED) {
+            villages = await getNftsByTemplate(TEMPLATE_LAND_VILLAGE)
+            if (
+                (await mergeLand("villages", CONFIG_LAND_MERGE_MSOURCE_BASE_FEE * CONFIG_LAND_VILLAGE_FEE_MULTIPLIER, LAND_VILLAGE_NAME, villages)) ==
+                false
+            )
+                console.log(`An error occured merging villages. Will try again next cycle`)
+
+            await delay(5000)
         }
-        await delay(5000)
-        let towns = await getNftsByTemplate(TEMPLATE_LAND_TOWN)
-        if ((await mergeLand("towns", CONFIG_LAND_MERGE_MSOURCE_BASE_FEE * CONFIG_LAND_TOWN_FEE_MULTIPLIER, LAND_TOWN_NAME, towns)) == false) {
-            console.log(`Skipping land merge due to merge failures. Will try again next cycle`)
-            break
+
+        if (CONFIG_LAND_MERGE_TOWN_ENABLED) {
+            towns = await getNftsByTemplate(TEMPLATE_LAND_TOWN)
+            if ((await mergeLand("towns", CONFIG_LAND_MERGE_MSOURCE_BASE_FEE * CONFIG_LAND_TOWN_FEE_MULTIPLIER, LAND_TOWN_NAME, towns)) == false)
+                console.log(`An error occured merging towns. Will try again next cycle`)
+
+            await delay(5000)
         }
-        await delay(5000)
-        let cities = await getNftsByTemplate(TEMPLATE_LAND_CITY)
-        if ((await mergeLand("cities", CONFIG_LAND_MERGE_MSOURCE_BASE_FEE * CONFIG_LAND_CITY_FEE_MULTIPLIER, LAND_CITY_NAME, cities)) == false) {
-            console.log(`Skipping land merge due to merge failures. Will try again next cycle`)
-            break
+        if (CONFIG_LAND_MERGE_CITY_ENABLED) {
+            cities = await getNftsByTemplate(TEMPLATE_LAND_CITY)
+            if ((await mergeLand("cities", CONFIG_LAND_MERGE_MSOURCE_BASE_FEE * CONFIG_LAND_CITY_FEE_MULTIPLIER, LAND_CITY_NAME, cities)) == false)
+                console.log(`An error occured merging cities. Will try again next cycle`)
+
+            await delay(5000)
         }
-        await delay(5000)
+
         //if any lands were attempted, run the loop one more time
         if (farms.length >= 3 || ranches.length >= 3 || villages.length >= 3 || towns.length >= 3 || cities.length >= 3) {
             console.log("Cycling land merge to check more additional lands")
@@ -1515,7 +1565,7 @@ async function getWaxBalance() {
  *
  * ******************************************/
 async function handleError(err) {
-    if (err.toString().toLowerCase().indexOf("billing") > -1) {
+    if (err.toString().indexOf("is greater than the maximum billable CPU time") > -1) {
         console.log(
             "Waiting 60 seconds due to billing errors and to prevent spamming failures.  If this occurs often, consider staking more WAX for CPU on the account."
         )
