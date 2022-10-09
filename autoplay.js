@@ -153,14 +153,6 @@ async function main() {
                 await delay(TXN_WAIT_TIME_MS)
             }
 
-            console.log("Recharging assets again...")
-            //check for assets needing a recharge after mint
-            rechargeCount = await rechargeAssets()
-            if (rechargeCount > 0) {
-                console.log("Waiting on blockchain transaction confirmations")
-                await delay(TXN_WAIT_TIME_MS)
-            }
-
             console.log("Merging lands...")
             await mergeLands()
 
