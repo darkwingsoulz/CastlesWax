@@ -422,58 +422,48 @@ async function mintAssets() {
 
 async function mergeLands() {
     let farms, ranches, villages, towns, cities
-    let checkLandMerge = false
-    do {
-        if (CONFIG_LAND_MERGE_FARM_ENABLED) {
-            farms = await getNftsByTemplate(TEMPLATE_LAND_FARM)
-            if ((await mergeLand("farms", CONFIG_LAND_MERGE_MSOURCE_BASE_FEE * CONFIG_LAND_FARM_FEE_MULTIPLIER, LAND_FARM_NAME, farms)) == false)
-                console.log(`An error occured merging farms. Will try again next cycle`)
 
-            await delay(5000)
-        }
+    if (CONFIG_LAND_MERGE_FARM_ENABLED) {
+        farms = await getNftsByTemplate(TEMPLATE_LAND_FARM)
+        if ((await mergeLand("farms", CONFIG_LAND_MERGE_MSOURCE_BASE_FEE * CONFIG_LAND_FARM_FEE_MULTIPLIER, LAND_FARM_NAME, farms)) == false)
+            console.log(`An error occured merging farms. Will try again next cycle`)
 
-        if (CONFIG_LAND_MERGE_RANCH_ENABLED) {
-            ranches = await getNftsByTemplate(TEMPLATE_LAND_RANCH)
-            if (
-                (await mergeLand("ranches", CONFIG_LAND_MERGE_MSOURCE_BASE_FEE * CONFIG_LAND_RANCH_FEE_MULTIPLIER, LAND_RANCH_NAME, ranches)) == false
-            )
-                console.log(`An error occured merging ranches. Will try again next cycle`)
+        await delay(5000)
+    }
 
-            await delay(5000)
-        }
+    if (CONFIG_LAND_MERGE_RANCH_ENABLED) {
+        ranches = await getNftsByTemplate(TEMPLATE_LAND_RANCH)
+        if ((await mergeLand("ranches", CONFIG_LAND_MERGE_MSOURCE_BASE_FEE * CONFIG_LAND_RANCH_FEE_MULTIPLIER, LAND_RANCH_NAME, ranches)) == false)
+            console.log(`An error occured merging ranches. Will try again next cycle`)
 
-        if (CONFIG_LAND_MERGE_VILLAGE_ENABLED) {
-            villages = await getNftsByTemplate(TEMPLATE_LAND_VILLAGE)
-            if (
-                (await mergeLand("villages", CONFIG_LAND_MERGE_MSOURCE_BASE_FEE * CONFIG_LAND_VILLAGE_FEE_MULTIPLIER, LAND_VILLAGE_NAME, villages)) ==
-                false
-            )
-                console.log(`An error occured merging villages. Will try again next cycle`)
+        await delay(5000)
+    }
 
-            await delay(5000)
-        }
+    if (CONFIG_LAND_MERGE_VILLAGE_ENABLED) {
+        villages = await getNftsByTemplate(TEMPLATE_LAND_VILLAGE)
+        if (
+            (await mergeLand("villages", CONFIG_LAND_MERGE_MSOURCE_BASE_FEE * CONFIG_LAND_VILLAGE_FEE_MULTIPLIER, LAND_VILLAGE_NAME, villages)) ==
+            false
+        )
+            console.log(`An error occured merging villages. Will try again next cycle`)
 
-        if (CONFIG_LAND_MERGE_TOWN_ENABLED) {
-            towns = await getNftsByTemplate(TEMPLATE_LAND_TOWN)
-            if ((await mergeLand("towns", CONFIG_LAND_MERGE_MSOURCE_BASE_FEE * CONFIG_LAND_TOWN_FEE_MULTIPLIER, LAND_TOWN_NAME, towns)) == false)
-                console.log(`An error occured merging towns. Will try again next cycle`)
+        await delay(5000)
+    }
 
-            await delay(5000)
-        }
-        if (CONFIG_LAND_MERGE_CITY_ENABLED) {
-            cities = await getNftsByTemplate(TEMPLATE_LAND_CITY)
-            if ((await mergeLand("cities", CONFIG_LAND_MERGE_MSOURCE_BASE_FEE * CONFIG_LAND_CITY_FEE_MULTIPLIER, LAND_CITY_NAME, cities)) == false)
-                console.log(`An error occured merging cities. Will try again next cycle`)
+    if (CONFIG_LAND_MERGE_TOWN_ENABLED) {
+        towns = await getNftsByTemplate(TEMPLATE_LAND_TOWN)
+        if ((await mergeLand("towns", CONFIG_LAND_MERGE_MSOURCE_BASE_FEE * CONFIG_LAND_TOWN_FEE_MULTIPLIER, LAND_TOWN_NAME, towns)) == false)
+            console.log(`An error occured merging towns. Will try again next cycle`)
 
-            await delay(5000)
-        }
+        await delay(5000)
+    }
+    if (CONFIG_LAND_MERGE_CITY_ENABLED) {
+        cities = await getNftsByTemplate(TEMPLATE_LAND_CITY)
+        if ((await mergeLand("cities", CONFIG_LAND_MERGE_MSOURCE_BASE_FEE * CONFIG_LAND_CITY_FEE_MULTIPLIER, LAND_CITY_NAME, cities)) == false)
+            console.log(`An error occured merging cities. Will try again next cycle`)
 
-        //if any lands were attempted, run the loop one more time
-        if (farms.length >= 3 || ranches.length >= 3 || villages.length >= 3 || towns.length >= 3 || cities.length >= 3) {
-            console.log("Cycling land merge to check more additional lands")
-            checkLandMerge = true
-        } else checkLandMerge = false
-    } while (checkLandMerge)
+        await delay(5000)
+    }
 }
 
 async function mergeLand(displayName, fee, landName, landNfts) {
