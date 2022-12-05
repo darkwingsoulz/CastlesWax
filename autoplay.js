@@ -388,27 +388,27 @@ async function mintAssets() {
 
         if (castles.eligibleToMint.length > 0) {
             console.log("Minting for Castles...")
-            if (await mint(castles.eligibleToMint, RECIPE_CASTLE, ACCOUNT_MSOURCEKINGS)) didAnyAssetMint = true
+            if (await mint(castles.eligibleToMint, RECIPE_CASTLE, ACCOUNT_MSOURCEKINGS, true)) didAnyAssetMint = true
         } else console.log("No castles to mint")
 
         if (barons.eligibleToMint.length > 0) {
             console.log("Minting for Barons...")
-            if (await mint(barons.eligibleToMint, RECIPE_BARON, ACCOUNT_MSOURCEBARON)) didAnyAssetMint = true
+            if (await mint(barons.eligibleToMint, RECIPE_BARON, ACCOUNT_MSOURCEBARON, false)) didAnyAssetMint = true
         } else console.log("No barons to mint")
 
         if (lumberjacks.eligibleToMint.length > 0) {
             console.log("Minting for Lumberjacks...")
-            if (await mint(lumberjacks.eligibleToMint, RECIPE_LUMBER, ACCOUNT_MSOURCEGOODS)) didAnyAssetMint = true
+            if (await mint(lumberjacks.eligibleToMint, RECIPE_LUMBER, ACCOUNT_MSOURCEGOODS, true)) didAnyAssetMint = true
         } else console.log("No lumberjacks to mint")
 
         if (carpenters.eligibleToMint.length > 0) {
             console.log("Minting for Carpenters...")
-            if (await mint(carpenters.eligibleToMint, RECIPE_FINE_WOOD, ACCOUNT_MSOURCEGOODS)) didAnyAssetMint = true
+            if (await mint(carpenters.eligibleToMint, RECIPE_FINE_WOOD, ACCOUNT_MSOURCEGOODS, true)) didAnyAssetMint = true
         } else console.log("No carpenters to mint")
 
         if (miners.eligibleToMint.length > 0) {
             console.log("Minting for Miners...")
-            if (await mint(miners.eligibleToMint, RECIPE_METAL, ACCOUNT_MSOURCEGOODS)) didAnyAssetMint = true
+            if (await mint(miners.eligibleToMint, RECIPE_METAL, ACCOUNT_MSOURCEGOODS, true)) didAnyAssetMint = true
         } else console.log("No miners to mint")
 
         return didAnyAssetMint
@@ -665,7 +665,7 @@ async function rechargeAssets() {
     return rechargeCount
 }
 
-async function mint(eligibleToMint, recipeId, contract) {
+async function mint(eligibleToMint, recipeId, contract, supportsMultipleAssets) {
     try {
         if (eligibleToMint.length > 0) {
             let counter = 0
@@ -678,7 +678,7 @@ async function mint(eligibleToMint, recipeId, contract) {
                     assets.push(eligibleToMint[i])
                 }
 
-                if (!(await contract_craft(assets, recipeId, contract))) return false
+                if (!(await contract_craft(assets, recipeId, contract, supportsMultipleAssets))) return false
 
                 counter += MINT_MAX
             }
@@ -947,26 +947,45 @@ async function contract_claimMSource() {
     }
 }
 
-async function contract_craft(assets, recipeId, contract) {
+async function contract_craft(assets, recipeId, contract, supportsMultipleAssets) {
     try {
         let actionsArray = []
 
-        for (let i = 0; i < assets.length; i++) {
-            actionsArray.push({
-                account: contract,
-                name: "craft",
-                authorization: [
-                    {
-                        actor: CONFIG_WAX_ADDRESS,
-                        permission: "active",
+        if (supportsMultipleAssets) {
+            for (let i = 0; i < assets.length; i++) {
+                actionsArray.push({
+                    account: contract,
+                    name: "craft",
+                    authorization: [
+                        {
+                            actor: CONFIG_WAX_ADDRESS,
+                            permission: "active",
+                        },
+                    ],
+                    data: {
+                        owner: CONFIG_WAX_ADDRESS,
+                        asset_ids: [assets[i]],
+                        recipe_id: recipeId,
                     },
-                ],
-                data: {
-                    owner: CONFIG_WAX_ADDRESS,
-                    asset_ids: [assets[i]],
-                    recipe_id: recipeId,
-                },
-            })
+                })
+            }
+        } else {
+            for (let i = 0; i < assets.length; i++) {
+                actionsArray.push({
+                    account: contract,
+                    name: "craft",
+                    authorization: [
+                        {
+                            actor: CONFIG_WAX_ADDRESS,
+                            permission: "active",
+                        },
+                    ],
+                    data: {
+                        owner: CONFIG_WAX_ADDRESS,
+                        asset_id: assets[i],
+                    },
+                })
+            }
         }
 
         let craftAction = {
